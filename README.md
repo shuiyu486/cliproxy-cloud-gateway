@@ -17,21 +17,46 @@ client -> Caddy HTTPS -> CLIProxyAPI -> Codex / ChatGPT 上游
 
 ```mermaid
 flowchart LR
-  Client["Client / 用户客户端"] --> Caddy["Caddy HTTPS"]
-  Caddy --> CLIProxyAPI["CLIProxyAPI 127.0.0.1:8317"]
-  CLIProxyAPI --> Upstream["Codex / ChatGPT 上游"]
+  subgraph CallerZone["调用方设备"]
+    Caller["Claude Code / Codex 兼容客户端"]
+  end
 
-  Caddy -. "公网 443 / 自动证书" .-> Client
-  CLIProxyAPI -. "私有监听，不直接暴露公网" .-> Caddy
+  subgraph PublicZone["公网入口"]
+    Domain["https://你的域名"]
+    Caddy["Caddy\n公网 HTTPS :443"]
+  end
+
+  subgraph ServerZone["云服务器本机"]
+    CLIProxyAPI["CLIProxyAPI\n127.0.0.1:8317"]
+    Config["config.yaml\n路由 / key / 默认值"]
+    Auth["auth/*.json\nCodex OAuth 凭据"]
+  end
+
+  subgraph ProxyZone["可选上游代理"]
+    Proxy["Direct / HTTP / SOCKS5"]
+  end
+
+  subgraph UpstreamZone["OpenAI 上游"]
+    Upstream["Codex / ChatGPT API"]
+  end
+
+  Caller -->|"只访问公网域名"| Domain
+  Domain -->|"TLS 证书 / HTTPS 终止"| Caddy
+  Caddy -->|"reverse_proxy 127.0.0.1:8317"| CLIProxyAPI
+  Config -. "启动时读取" .-> CLIProxyAPI
+  Auth -. "OAuth 凭据" .-> CLIProxyAPI
+  CLIProxyAPI -->|"Direct 模式"| Upstream
+  CLIProxyAPI -. "Http / Socks5 模式才经过" .-> Proxy
+  Proxy -. "转发出站请求" .-> Upstream
 ```
 
 关键点：
 
-- 用户只访问 `https://你的域名`。
-- Caddy 负责公网 HTTPS、证书和反代。
-- CLIProxyAPI 只绑定 `127.0.0.1`，不直接暴露到公网。
-- CLIProxyAPI 再访问 Codex / ChatGPT 上游。
-- 如果服务器访问上游需要代理，只配置 `CLIProxyAPI -> 上游` 这一段，不影响用户访问 Caddy。
+- 调用方只访问 `https://你的域名`，不会直接访问 CLIProxyAPI 或上游。
+- Caddy 是唯一公网入口，负责 HTTPS、证书和反代。
+- CLIProxyAPI 位于云服务器本机，只绑定 `127.0.0.1:8317`，不直接暴露到公网。
+- `config.yaml` 和 `auth/*.json` 是 CLIProxyAPI 的输入，分别提供路由/key/默认值和 Codex OAuth 凭据。
+- 可选上游代理只影响 `CLIProxyAPI -> 上游` 的出站请求，不影响调用方访问 Caddy。
 
 ## 功能特性
 
@@ -96,6 +121,23 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 ```
 
 ## 生成文件
+
+生成器输出如何落地：
+
+```mermaid
+flowchart LR
+  Generator["New-CloudGateway 生成器"] --> Config["config.yaml\nCLIProxyAPI 配置"]
+  Generator --> Caddyfile["Caddyfile\nCaddy 反代配置"]
+  Generator --> ClientEnv["client.env\n调用方参考，不是服务端运行依赖"]
+  Generator --> AuthDir["auth/\n放置 Codex OAuth JSON"]
+  Generator --> Logs["logs/\nCLIProxyAPI 日志"]
+
+  Config --> CLIProxyAPI["CLIProxyAPI"]
+  AuthDir --> CLIProxyAPI
+  Logs <-. "写入" .- CLIProxyAPI
+  Caddyfile --> Caddy["Caddy"]
+  ClientEnv -. "复制 BASE_URL / TOKEN 到调用方" .-> Caller["调用方程序"]
+```
 
 | 文件/目录 | 用途 |
 |---|---|

@@ -19,22 +19,46 @@ client -> Caddy HTTPS -> CLIProxyAPI -> Codex / ChatGPT upstream
 
 ```mermaid
 flowchart LR
-  Client["Client"] --> Caddy["Caddy HTTPS"]
-  Caddy --> CLIProxyAPI["CLIProxyAPI 127.0.0.1:8317"]
-  CLIProxyAPI --> Upstream["Codex / ChatGPT upstream"]
+  subgraph CallerZone["Caller device"]
+    Caller["Claude Code / Codex-compatible client"]
+  end
 
-  Caddy -. "public 443 / automatic certificates" .-> Client
-  CLIProxyAPI -. "private listener, not internet-facing" .-> Caddy
+  subgraph PublicZone["Public entry"]
+    Domain["https://your-domain"]
+    Caddy["Caddy\nPublic HTTPS :443"]
+  end
+
+  subgraph ServerZone["Cloud server localhost"]
+    CLIProxyAPI["CLIProxyAPI\n127.0.0.1:8317"]
+    Config["config.yaml\nrouting / keys / defaults"]
+    Auth["auth/*.json\nCodex OAuth credentials"]
+  end
+
+  subgraph ProxyZone["Optional upstream proxy"]
+    Proxy["Direct / HTTP / SOCKS5"]
+  end
+
+  subgraph UpstreamZone["OpenAI upstream"]
+    Upstream["Codex / ChatGPT API"]
+  end
+
+  Caller -->|"only calls public domain"| Domain
+  Domain -->|"TLS certificates / HTTPS termination"| Caddy
+  Caddy -->|"reverse_proxy 127.0.0.1:8317"| CLIProxyAPI
+  Config -. "read on startup" .-> CLIProxyAPI
+  Auth -. "OAuth credentials" .-> CLIProxyAPI
+  CLIProxyAPI -->|"Direct mode"| Upstream
+  CLIProxyAPI -. "Http / Socks5 modes only" .-> Proxy
+  Proxy -. "forwards outbound requests" .-> Upstream
 ```
 
 Key points:
 
-- Users call only `https://your-domain`.
-- Caddy handles public HTTPS, certificates, and reverse proxying.
-- CLIProxyAPI binds to `127.0.0.1` and is not exposed directly.
-- CLIProxyAPI then reaches the Codex / ChatGPT upstream.
-- If the server needs a proxy for upstream access, configure only the
-  `CLIProxyAPI -> upstream` leg.
+- Callers only use `https://your-domain`; they do not directly reach CLIProxyAPI or upstream.
+- Caddy is the only public entry point and handles HTTPS, certificates, and reverse proxying.
+- CLIProxyAPI stays on the cloud server localhost and binds only to `127.0.0.1:8317`.
+- `config.yaml` and `auth/*.json` feed CLIProxyAPI with routing, keys, defaults, and Codex OAuth credentials.
+- Optional upstream proxy affects only outbound `CLIProxyAPI -> upstream` traffic; it does not affect callers connecting to Caddy.
 
 ## Features
 
@@ -100,6 +124,23 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 ```
 
 ## Generated Files
+
+How Generated Files Are Used:
+
+```mermaid
+flowchart LR
+  Generator["New-CloudGateway generator"] --> Config["config.yaml\nCLIProxyAPI configuration"]
+  Generator --> Caddyfile["Caddyfile\nCaddy reverse proxy"]
+  Generator --> ClientEnv["client.env\nCaller reference, not a service dependency"]
+  Generator --> AuthDir["auth/\nPlace Codex OAuth JSON here"]
+  Generator --> Logs["logs/\nCLIProxyAPI logs"]
+
+  Config --> CLIProxyAPI["CLIProxyAPI"]
+  AuthDir --> CLIProxyAPI
+  Logs <-. "writes" .- CLIProxyAPI
+  Caddyfile --> Caddy["Caddy"]
+  ClientEnv -. "copy BASE_URL / TOKEN to caller" .-> Caller["Caller program"]
+```
 
 | File / directory | Purpose |
 |---|---|
