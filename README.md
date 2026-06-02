@@ -101,11 +101,11 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 |---|---|
 | `config.yaml` | CLIProxyAPI 配置。 |
 | `Caddyfile` | Caddy 反代配置。 |
-| `client.env` | 客户端需要的 `ANTHROPIC_BASE_URL` 和第一个 API key。 |
+| `client.env` | 给调用方参考的环境变量示例，包含网关地址和第一个客户端 API key。 |
 | `auth/` | 放置 Codex OAuth JSON。 |
 | `logs/` | CLIProxyAPI 日志目录。 |
 
-`client.env` 会包含敏感 API key，已经被 `.gitignore` 排除。不要提交它。
+`client.env` 不是 CLIProxyAPI 或 Caddy 的运行依赖，只是方便你把接入信息复制到本机或其他机器上的调用方。它会包含敏感 API key，已经被 `.gitignore` 排除。不要提交它。
 
 ## 上游代理
 
@@ -208,9 +208,11 @@ doctor 会检查：
 - Caddy 是否反代到本机 CLIProxyAPI。
 - auth JSON 的 `websockets` 和 `proxy_url` 是否与配置一致。
 
-## 客户端配置
+## 调用方接入
 
-生成后查看 `client.env`：
+这里的“调用方”指 Claude Code、Codex 兼容客户端、脚本或任何会请求这个网关的程序。网关本身只需要 `config.yaml` 和 Caddy 配置；`client.env` 只是生成器额外写出的参考文件，用来告诉调用方应该连到哪个 HTTPS 地址、使用哪个客户端 API key。
+
+部署完成后，可以查看 `client.env`：
 
 ```bash
 cat /opt/cliproxy-gateway/client.env
@@ -223,7 +225,7 @@ ANTHROPIC_BASE_URL=https://api.example.com
 ANTHROPIC_AUTH_TOKEN=sk-...
 ```
 
-把这两个值填入你的 Claude Code / Anthropic-compatible 客户端即可。
+把这两个值填入你的 Claude Code / Anthropic-compatible 客户端即可。如果调用方和网关不在同一台机器，只需要把这两个值配置到调用方所在环境，不需要复制整个部署目录。
 
 ## 常见问题
 

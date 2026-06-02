@@ -105,11 +105,11 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 |---|---|
 | `config.yaml` | CLIProxyAPI configuration. |
 | `Caddyfile` | Caddy reverse proxy configuration. |
-| `client.env` | Client `ANTHROPIC_BASE_URL` and the first API key. |
+| `client.env` | Example environment variables for callers, including the gateway URL and the first client API key. |
 | `auth/` | Place Codex OAuth JSON files here. |
 | `logs/` | CLIProxyAPI log directory. |
 
-`client.env` contains a sensitive API key and is git-ignored. Do not commit it.
+`client.env` is not required by CLIProxyAPI or Caddy at runtime. It is only a convenience file for copying caller-side connection settings to your local machine or another host. It contains a sensitive API key and is git-ignored. Do not commit it.
 
 ## Upstream Proxy
 
@@ -197,9 +197,14 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 Doctor checks generated files, localhost binding, disabled remote management,
 bounded retry, payload filtering, Caddy routing, and auth JSON metadata.
 
-## Client Configuration
+## Caller Setup
 
-Read `client.env` after generation:
+Here, "caller" means Claude Code, a Codex-compatible client, a script, or any
+program that sends requests to this gateway. The gateway itself only needs
+`config.yaml` and the Caddy configuration; `client.env` is an extra reference
+file generated so callers know which HTTPS URL and client API key to use.
+
+After deployment, read `client.env`:
 
 ```bash
 cat /opt/cliproxy-gateway/client.env
@@ -212,7 +217,9 @@ ANTHROPIC_BASE_URL=https://api.example.com
 ANTHROPIC_AUTH_TOKEN=sk-...
 ```
 
-Copy these values into your Claude Code / Anthropic-compatible client.
+Copy these values into your Claude Code / Anthropic-compatible client. If the
+caller runs on a different machine, configure only these two values on that
+machine; you do not need to copy the whole deployment directory.
 
 ## FAQ
 
