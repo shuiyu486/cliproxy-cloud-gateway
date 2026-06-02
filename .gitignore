@@ -1,0 +1,13 @@
+generated/
+auth/
+logs/
+*.local.yaml
+*.local.yml
+*.env
+client.env
+*.client.env
+*.key
+*.pem
+*.token
+*.secret
+*.tmp

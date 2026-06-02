@@ -1,0 +1,19 @@
+[Unit]
+Description=CLIProxyAPI Cloud Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+WorkingDirectory={{INSTALL_DIR}}
+ExecStart={{BINARY_PATH}} --config {{CONFIG_PATH}}
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target
