@@ -134,7 +134,7 @@ flowchart LR
 
   Config --> CLIProxyAPI["CLIProxyAPI"]
   AuthDir --> CLIProxyAPI
-  Logs <-. "写入" .- CLIProxyAPI
+  CLIProxyAPI -. "写入" .-> Logs
   Caddyfile --> Caddy["Caddy"]
   ClientEnv -. "复制 BASE_URL / TOKEN 到调用方" .-> Caller["调用方程序"]
 ```
