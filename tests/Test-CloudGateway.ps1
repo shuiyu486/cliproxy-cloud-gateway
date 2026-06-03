@@ -102,6 +102,11 @@ if ($null -ne $Readme) {
     Assert-Contains $Readme '## 快速开始' "default README has quick start"
     Assert-Contains $Readme '## 上游代理' "default README explains upstream proxy"
     Assert-Contains $Readme '## 安全默认值' "default README documents security defaults"
+    Assert-Contains $Readme '## 获取 Codex OAuth JSON' "default README explains how to get Codex auth JSON"
+    Assert-Contains $Readme './cli-proxy-api -config ./config.yaml -codex-device-login' "default README documents Linux device login"
+    Assert-Contains $Readme 'Linux 云服务器不需要图形浏览器' "default README explains headless Linux login"
+    Assert-Contains $Readme '不要直接把 `~/.codex/auth.json` 当作这里的 OAuth 文件' "default README warns against copying Codex CLI auth"
+    Assert-Contains $Readme '不要让本机和云服务器长期并发使用同一份 OAuth JSON' "default README warns against concurrent auth reuse"
     Assert-Contains $Readme '## Doctor 检查' "default README documents doctor checks"
     Assert-Contains $Readme 'https://github.com/shuiyu486/cliproxy-cloud-gateway' "default README references GitHub repository"
 }
@@ -130,6 +135,11 @@ if ($null -ne $EnglishReadme) {
     Assert-Contains $EnglishReadme '## Quick Start' "English README has quick start"
     Assert-Contains $EnglishReadme '## Upstream Proxy' "English README explains upstream proxy"
     Assert-Contains $EnglishReadme '## Security Defaults' "English README documents security defaults"
+    Assert-Contains $EnglishReadme '## Get Codex OAuth JSON' "English README explains how to get Codex auth JSON"
+    Assert-Contains $EnglishReadme './cli-proxy-api -config ./config.yaml -codex-device-login' "English README documents Linux device login"
+    Assert-Contains $EnglishReadme 'The server does not need a graphical browser' "English README explains headless Linux login"
+    Assert-Contains $EnglishReadme 'Do not use `~/.codex/auth.json` directly as this OAuth file' "English README warns against copying Codex CLI auth"
+    Assert-Contains $EnglishReadme 'Do not keep the same OAuth JSON in long-term concurrent use on both your local machine and the server' "English README warns against concurrent auth reuse"
 }
 
 $Memory = Read-TextIfPresent $MemoryPath

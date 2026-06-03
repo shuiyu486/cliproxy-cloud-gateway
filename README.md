@@ -217,6 +217,35 @@ payload:
 - bounded retry：避免失败被长时间重试伪装成卡住。
 - `payload.filter`：过滤 Claude Code 请求中容易影响 Codex 适配的 thinking/reasoning 字段。
 
+## 获取 Codex OAuth JSON
+
+Linux 云服务器不需要图形浏览器；推荐在服务器 SSH 里使用 CLIProxyAPI 的设备码登录：
+
+```bash
+cd /opt/cliproxy-gateway
+./cli-proxy-api -config ./config.yaml -codex-device-login
+```
+
+命令会在终端输出登录 URL / 设备码。你可以在自己电脑的浏览器里打开并授权；服务器端 CLIProxyAPI 会继续等待授权结果，并把 Codex OAuth JSON 写入 `config.yaml` 指定的 `auth-dir`：
+
+```text
+/opt/cliproxy-gateway/auth/*.json
+```
+
+也可以在可信本机用同版本 CLIProxyAPI 登录生成 JSON，再复制到云服务器：
+
+```bash
+scp codex*.json user@server:/opt/cliproxy-gateway/auth/
+ssh user@server 'chmod 600 /opt/cliproxy-gateway/auth/*.json'
+```
+
+注意：
+
+- 这里需要的是 CLIProxyAPI 自己登录生成的 `type=codex` OAuth JSON。不要直接把 `~/.codex/auth.json` 当作这里的 OAuth 文件。
+- OAuth JSON 通常不是按本机硬件绑定，但它等同账号登录凭据。不要提交 GitHub、不要贴日志、不要发给别人。
+- 不要让本机和云服务器长期并发使用同一份 OAuth JSON，refresh token 轮换可能导致其中一边失效。
+- 如果本机生成的 JSON 在云服务器上失败，优先检查服务器出口 IP、代理出口、账号权限或上游风控；这类失败通常不是文件路径问题。
+
 ## Auth JSON 同步
 
 生成器会扫描 `auth/` 目录下 enabled `type=codex` 的 JSON 文件：
