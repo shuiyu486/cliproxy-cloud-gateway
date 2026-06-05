@@ -223,7 +223,7 @@ $Config = Render-Template `
     -Values @{
         "{{PORT}}" = $Port.ToString([System.Globalization.CultureInfo]::InvariantCulture)
         "{{PROXY_URL_BLOCK}}" = $ProxyUrlBlock
-        "{{AUTH_DIR}}" = Get-YamlSingleQuotedContent $AuthDir
+        "{{AUTH_DIR}}" = Get-YamlSingleQuotedContent ($AuthDir.Replace("\", "/"))
         "{{API_KEYS_YAML}}" = $ApiKeysYaml
         "{{CODEX_USER_AGENT}}" = Get-YamlSingleQuotedContent $CodexUserAgent
     }

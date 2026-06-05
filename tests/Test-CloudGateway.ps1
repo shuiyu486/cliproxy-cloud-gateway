@@ -218,6 +218,7 @@ if (Test-Path -LiteralPath $PowerShellGenerator) {
 
         Assert-Contains $GeneratedConfig 'host: "127.0.0.1"' "generated config binds to localhost"
         Assert-Contains $GeneratedConfig 'port: 18444' "generated config uses requested port"
+        Assert-Contains $GeneratedConfig ($TempDir.Replace("\", "/")) "generated config writes auth-dir with forward slashes"
         Assert-Contains $GeneratedConfig "sk-test-one" "generated config includes first API key"
         Assert-Contains $GeneratedConfig "sk-test-two" "generated config includes second API key"
         Assert-NotContains $GeneratedConfig 'proxy-url:' "generated Direct config omits upstream proxy-url"
