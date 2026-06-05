@@ -25,7 +25,9 @@ param(
 
     [switch]$SkipStart,
 
-    [switch]$SkipCaddy
+    [switch]$SkipCaddy,
+
+    [switch]$SkipDownload
 )
 
 Set-StrictMode -Version Latest
@@ -168,6 +170,171 @@ function Resolve-CommandPath {
     return $Command.Source
 }
 
+function Get-GitHubLatestReleaseAsset {
+    param(
+        [string]$Repo,
+        [string]$AssetRegex,
+        [string[]]$NameCandidates
+    )
+
+    $Headers = @{ "User-Agent" = "cliproxy-cloud-gateway" }
+    if ($env:GH_TOKEN) {
+        $Headers["Authorization"] = "Bearer $env:GH_TOKEN"
+    } elseif ($env:GITHUB_TOKEN) {
+        $Headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
+    }
+
+    $Tag = ""
+    try {
+        $Atom = Invoke-WebRequest -Uri "https://github.com/$Repo/releases.atom" -UseBasicParsing -Headers $Headers -TimeoutSec 30
+        $TagMatch = [regex]::Match($Atom.Content, '<link rel="alternate" type="text/html" href="https://github\.com/[^/]+/[^/]+/releases/tag/([^"]+)"')
+        if ($TagMatch.Success) {
+            $Tag = $TagMatch.Groups[1].Value
+        }
+    } catch { }
+
+    if ([string]::IsNullOrWhiteSpace($Tag)) {
+        try {
+            $Response = Invoke-WebRequest -Uri "https://github.com/$Repo/releases/latest" -UseBasicParsing -Headers $Headers -TimeoutSec 30
+            if ($Response.BaseResponse -and $Response.BaseResponse.ResponseUri) {
+                $FinalUri = $Response.BaseResponse.ResponseUri.AbsoluteUri
+                if ($FinalUri -match '/releases/tag/([^/]+)$') {
+                    $Tag = $Matches[1]
+                }
+            }
+        } catch { }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Tag)) {
+        try {
+            $AssetsPage = Invoke-WebRequest -Uri "https://github.com/$Repo/releases/expanded_assets/$Tag" -UseBasicParsing -Headers $Headers -TimeoutSec 30
+            $EscapedTag = [regex]::Escape($Tag)
+            $AssetMatches = [regex]::Matches($AssetsPage.Content, "href=`"/$Repo/releases/download/$EscapedTag/([^`"]+)`"")
+            foreach ($Match in $AssetMatches) {
+                $Name = $Match.Groups[1].Value
+                if ($Name -match $AssetRegex) {
+                    return [pscustomobject]@{
+                        Tag = $Tag
+                        Name = $Name
+                        Url = "https://github.com/$Repo/releases/download/$Tag/$Name"
+                    }
+                }
+            }
+        } catch { }
+
+        foreach ($Candidate in $NameCandidates) {
+            $Url = "https://github.com/$Repo/releases/download/$Tag/$Candidate"
+            try {
+                $Response = Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -Headers $Headers -TimeoutSec 15
+                if ($Response.StatusCode -eq 200) {
+                    return [pscustomobject]@{ Tag = $Tag; Name = $Candidate; Url = $Url }
+                }
+            } catch { }
+        }
+    }
+
+    try {
+        $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing -Headers $Headers -TimeoutSec 30
+        $Asset = $Release.assets | Where-Object { $_.name -match $AssetRegex } | Select-Object -First 1
+        if ($Asset) {
+            return [pscustomobject]@{ Tag = $Release.tag_name; Name = $Asset.name; Url = $Asset.browser_download_url }
+        }
+    } catch {
+        throw "GitHub release lookup failed for $Repo`: $($_.Exception.Message). Set GH_TOKEN to avoid rate limits, or download manually."
+    }
+
+    throw "No matching asset found for $Repo latest release."
+}
+
+function Install-ReleaseAssetIfMissing {
+    param(
+        [string]$Repo,
+        [string]$AssetRegex,
+        [string[]]$NameCandidates,
+        [string]$TargetPath,
+        [string]$TargetFileName
+    )
+
+    if (Test-Path -LiteralPath $TargetPath) {
+        Write-Output "Dependency exists, skip download: $TargetPath"
+        return
+    }
+
+    $TargetDir = Split-Path -Parent $TargetPath
+    if (-not (Test-Path -LiteralPath $TargetDir)) {
+        New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+    }
+
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    $Asset = Get-GitHubLatestReleaseAsset -Repo $Repo -AssetRegex $AssetRegex -NameCandidates $NameCandidates
+    Write-Output "Downloading $Repo $($Asset.Tag): $($Asset.Name)"
+
+    $TempDir = Join-Path $TargetDir ("download-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+    try {
+        $DownloadPath = Join-Path $TempDir $Asset.Name
+        Invoke-WebRequest -Uri $Asset.Url -OutFile $DownloadPath -UseBasicParsing -TimeoutSec 300
+
+        if ($Asset.Name -match '\.exe$') {
+            Copy-Item -LiteralPath $DownloadPath -Destination $TargetPath -Force
+        } else {
+            $ExtractDir = Join-Path $TempDir "extract"
+            Expand-Archive -Path $DownloadPath -DestinationPath $ExtractDir -Force
+            $Binary = Get-ChildItem -LiteralPath $ExtractDir -Recurse -Filter $TargetFileName -File | Select-Object -First 1
+            if (-not $Binary) {
+                throw "Downloaded archive does not contain $TargetFileName."
+            }
+            Copy-Item -LiteralPath $Binary.FullName -Destination $TargetPath -Force
+        }
+
+        Write-Output "Installed dependency: $TargetPath"
+    } finally {
+        if (Test-Path -LiteralPath $TempDir) {
+            Remove-Item -LiteralPath $TempDir -Recurse -Force
+        }
+    }
+}
+
+function Ensure-CLIProxyApiBinary {
+    param([string]$Path)
+
+    Install-ReleaseAssetIfMissing `
+        -Repo "router-for-me/CLIProxyAPI" `
+        -AssetRegex "(?i)(windows|win).*(amd64|x64|x86_64).*\.(zip|exe)$" `
+        -NameCandidates @("cli-proxy-api-windows-amd64.zip", "CLIProxyAPI-windows-amd64.zip", "CLIProxyAPI_windows_amd64.zip", "cli-proxy-api-windows-amd64.exe", "CLIProxyAPI-windows-amd64.exe", "cli-proxy-api.exe") `
+        -TargetPath $Path `
+        -TargetFileName "cli-proxy-api.exe"
+}
+
+function Ensure-CaddyBinary {
+    param(
+        [string]$PathOrCommand,
+        [string]$DeploymentDir
+    )
+
+    $Resolved = Resolve-CommandPath -PathOrCommand $PathOrCommand
+    if (-not [string]::IsNullOrWhiteSpace($Resolved)) {
+        Write-Output "Dependency exists, skip download: $Resolved"
+        return $Resolved
+    }
+
+    $TargetPath = $PathOrCommand
+    if ($PathOrCommand -eq "caddy") {
+        $TargetPath = Join-Path $DeploymentDir "caddy\caddy.exe"
+    }
+    $TargetPath = [System.IO.Path]::GetFullPath($TargetPath)
+
+    Install-ReleaseAssetIfMissing `
+        -Repo "caddyserver/caddy" `
+        -AssetRegex "(?i)windows.*amd64.*\.zip$" `
+        -NameCandidates @("caddy_windows_amd64.zip", "caddy_2.10.2_windows_amd64.zip") `
+        -TargetPath $TargetPath `
+        -TargetFileName "caddy.exe"
+
+    return $TargetPath
+}
+
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $GeneratorPath = Join-Path $ScriptDir "New-CloudGateway.ps1"
@@ -241,7 +408,10 @@ if ($SkipStart) {
 }
 
 if (-not (Test-Path -LiteralPath $BinaryPath)) {
-    throw "CLIProxyAPI binary not found: $BinaryPath"
+    if ($SkipDownload) {
+        throw "CLIProxyAPI binary not found: $BinaryPath"
+    }
+    Ensure-CLIProxyApiBinary -Path $BinaryPath
 }
 
 $CliArgs = @("--config", $ConfigPath)
@@ -250,6 +420,10 @@ Write-Output "Started CLIProxyAPI in a new window."
 
 if (-not $SkipCaddy) {
     $ResolvedCaddyPath = Resolve-CommandPath -PathOrCommand $CaddyPath
+    if ([string]::IsNullOrWhiteSpace($ResolvedCaddyPath) -and -not $SkipDownload) {
+        $ResolvedCaddyPath = Ensure-CaddyBinary -PathOrCommand $CaddyPath -DeploymentDir $DeploymentDir
+    }
+
     if ([string]::IsNullOrWhiteSpace($ResolvedCaddyPath)) {
         Write-Warning "Caddy not found: $CaddyPath"
         Write-Warning "Install Caddy or pass -CaddyPath, then run: caddy run --config `"$LanCaddyPath`""

@@ -1,5 +1,7 @@
 generated/
 cliproxy-gateway/
+cli-proxy-api/
+caddy/
 auth/
 logs/
 *.local.yaml
@@ -12,3 +14,6 @@ client.env
 *.token
 *.secret
 *.tmp
+*.zip
+*.tar.gz
+*.tgz

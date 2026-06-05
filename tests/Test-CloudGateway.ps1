@@ -61,6 +61,7 @@ $RequiredFiles = @(
     "templates/Caddyfile.template",
     "scripts/New-CloudGateway.ps1",
     "scripts/Start-CloudGatewayLan.ps1",
+    "scripts/start-cloud-gateway-lan.sh",
     "scripts/new-cloud-gateway.sh",
     "scripts/Test-CloudGatewayDoctor.ps1",
     "scripts/test-cloud-gateway-doctor.sh",
@@ -265,6 +266,8 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
 
         Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "PowerShell LAN starter exits cleanly in SkipStart mode"
         Assert-Contains $LanOutput "Enabled Codex auth JSON file(s): 1" "PowerShell LAN starter reports enabled Codex auth count"
+        Assert-NotContains $LanOutput "Downloading router-for-me/CLIProxyAPI" "PowerShell LAN starter SkipStart does not download CLIProxyAPI"
+        Assert-NotContains $LanOutput "Downloading caddyserver/caddy" "PowerShell LAN starter SkipStart does not download Caddy"
         Assert-NotContains $LanOutput "access_token" "PowerShell LAN starter does not print access token values"
         Assert-NotContains $LanOutput "refresh_token" "PowerShell LAN starter does not print refresh token values"
 
@@ -275,6 +278,11 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
         Assert-Contains $LanCaddy "reverse_proxy 127.0.0.1:18448" "PowerShell LAN starter proxies to local CLIProxyAPI port"
         Assert-Contains $LanConfig 'host: "127.0.0.1"' "PowerShell LAN starter keeps CLIProxyAPI private"
         Assert-True -Condition ($LanAuth.websockets -eq $true) -Message "PowerShell LAN starter synchronizes auth metadata through generator"
+
+        $LanStarterSource = Read-TextIfPresent $PowerShellLanStarter
+        Assert-Contains $LanStarterSource "router-for-me/CLIProxyAPI" "PowerShell LAN starter can download CLIProxyAPI from GitHub releases"
+        Assert-Contains $LanStarterSource "caddyserver/caddy" "PowerShell LAN starter can download Caddy from GitHub releases"
+        Assert-Contains $LanStarterSource "Dependency exists, skip download" "PowerShell LAN starter skips existing binaries"
     } catch {
         Assert-True -Condition $false -Message "PowerShell LAN starter scenario"
         Write-Host $_
@@ -376,6 +384,7 @@ if (Test-Path -LiteralPath $PowerShellGenerator) {
 }
 
 $BashGenerator = Join-Path $Root "scripts/new-cloud-gateway.sh"
+$BashLanStarter = Join-Path $Root "scripts/start-cloud-gateway-lan.sh"
 $Bash = Get-Command bash -ErrorAction SilentlyContinue
 if ((Test-Path -LiteralPath $BashGenerator) -and $Bash) {
     $EscapedBashGenerator = $BashGenerator.Replace("'", "'\''")
@@ -419,6 +428,47 @@ grep -q 'reverse_proxy 127.0.0.1:18445' '$BashTempDir/Caddyfile'
 "@
         & $Bash.Source -lc $BashCheck
         Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash generator writes expected config and Caddyfile"
+
+        if (Test-Path -LiteralPath $BashLanStarter) {
+            $EscapedBashLanStarter = $BashLanStarter.Replace("'", "'\''")
+            $BashLanStarterPathOutput = & $Bash.Source -lc "if command -v wslpath >/dev/null 2>&1; then wslpath -a '$EscapedBashLanStarter'; elif command -v cygpath >/dev/null 2>&1; then cygpath -u '$EscapedBashLanStarter'; else printf '%s\n' '$EscapedBashLanStarter'; fi"
+            $BashLanStarterForShell = ($BashLanStarterPathOutput | Select-Object -First 1)
+            & $Bash.Source -n $BashLanStarterForShell
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash LAN starter has valid syntax"
+
+            $BashLanPrep = @"
+mkdir -p '$BashTempDir/auth' &&
+printf '%s\n' '{"type":"codex","email":"bash-lan@example.test","disabled":false}' > '$BashTempDir/auth/codex-lan.json'
+"@
+            & $Bash.Source -lc $BashLanPrep
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash LAN starter test auth is prepared"
+
+            $BashLanOutput = & $Bash.Source $BashLanStarterForShell `
+                --output-dir $BashTempDir `
+                --domain "bash-lan.example.test" `
+                --server-host "192.0.2.20" `
+                --port 18449 `
+                --lan-port 18081 `
+                --skip-start 2>&1 | Out-String
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash LAN starter exits cleanly in skip-start mode"
+            Assert-Contains $BashLanOutput "Enabled Codex auth JSON file(s): 1" "Bash LAN starter reports enabled Codex auth count"
+            Assert-NotContains $BashLanOutput "Downloading router-for-me/CLIProxyAPI" "Bash LAN starter skip-start does not download CLIProxyAPI"
+            Assert-NotContains $BashLanOutput "Downloading caddyserver/caddy" "Bash LAN starter skip-start does not download Caddy"
+            Assert-NotContains $BashLanOutput "access_token" "Bash LAN starter does not print access token values"
+            Assert-NotContains $BashLanOutput "refresh_token" "Bash LAN starter does not print refresh token values"
+
+            $BashLanCheck = @"
+grep -q 'http://192.0.2.20:18081' '$BashTempDir/Caddyfile.lan' &&
+grep -q 'reverse_proxy 127.0.0.1:18449' '$BashTempDir/Caddyfile.lan'
+"@
+            & $Bash.Source -lc $BashLanCheck
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash LAN starter writes LAN Caddyfile"
+
+            $BashLanSource = Read-TextIfPresent $BashLanStarter
+            Assert-Contains $BashLanSource "router-for-me/CLIProxyAPI" "Bash LAN starter can download CLIProxyAPI from GitHub releases"
+            Assert-Contains $BashLanSource "caddyserver/caddy" "Bash LAN starter can download Caddy from GitHub releases"
+            Assert-Contains $BashLanSource "Dependency exists, skip download" "Bash LAN starter skips existing binaries"
+        }
 
         $BashDoctor = Join-Path $Root "scripts/test-cloud-gateway-doctor.sh"
         if (Test-Path -LiteralPath $BashDoctor) {

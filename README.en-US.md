@@ -64,6 +64,7 @@ Key points:
 
 - Windows and Linux generators.
 - Generates `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
+- LAN one-click test scripts can download CLIProxyAPI and Caddy binaries when missing.
 - Private-by-default listener: `host: "127.0.0.1"`.
 - Caddy as the public HTTPS edge.
 - Optional upstream proxy: `Direct`, `Http`, or `Socks5`.
@@ -281,12 +282,26 @@ LAN machine as the caller, run:
 ```
 
 The script regenerates deployment files, synchronizes auth JSON metadata, writes
-`Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. It prints only
+`Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. If
+`cli-proxy-api.exe` or `caddy.exe` is missing, it downloads from fixed GitHub
+release sources; existing binaries are skipped, not overwritten. It prints only
 an auth file summary, never token values.
 
 If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
 `type=codex` JSON at the root of `auth/`, so CLIProxyAPI may still report
 `0 Codex keys` after startup.
+
+Linux can use the LAN test script too:
+
+```bash
+bash ./scripts/start-cloud-gateway-lan.sh \
+  --output-dir /opt/cliproxy-gateway \
+  --server-host 192.168.1.10 \
+  --lan-port 8080
+```
+
+It downloads Linux CLIProxyAPI and Caddy binaries when missing; existing binaries
+are skipped.
 
 ## Caller Setup
 

@@ -23,6 +23,7 @@ client -> Caddy HTTPS -> CLIProxyAPI -> Codex / ChatGPT 上游
 | 修改 Windows 生成器 | `scripts/New-CloudGateway.ps1`、`tests/Test-CloudGateway.ps1` |
 | 修改 Windows 局域网一键测试 | `scripts/Start-CloudGatewayLan.ps1`、`tests/Test-CloudGateway.ps1` |
 | 修改 Linux 生成器 | `scripts/new-cloud-gateway.sh`、`tests/Test-CloudGateway.ps1` |
+| 修改 Linux 局域网一键测试 | `scripts/start-cloud-gateway-lan.sh`、`tests/Test-CloudGateway.ps1` |
 | 修改 doctor 检查 | `scripts/Test-CloudGatewayDoctor.ps1`、`scripts/test-cloud-gateway-doctor.sh` |
 | 修改 Windows 开机启动方式 | `windows/Register-CLIProxyAPI-Task.ps1` |
 | 修改 Linux systemd 示例 | `linux/cliproxy.service.template` |
@@ -31,7 +32,7 @@ client -> Caddy HTTPS -> CLIProxyAPI -> Codex / ChatGPT 上游
 ## 架构边界
 
 - CLIProxyAPI 必须只监听本机，公网入口由 Caddy 提供。
-- 这个项目只生成部署配置和检查脚本，不下载、打包或维护 CLIProxyAPI 二进制。
+- 这个项目主要生成部署配置和检查脚本；局域网一键测试脚本可在缺少时从固定 GitHub release 来源下载 CLIProxyAPI 和 Caddy 二进制，但不得打包或提交二进制。
 - 不引入 GUI、Node 构建链路、数据库、Redis、用户计费、额度管理或多租户后台。
 - Windows 脚本优先兼容 Windows PowerShell 5.1。
 - Linux 脚本使用 Bash；在 Windows 工作区中测试时不要依赖可执行位，文档示例用 `bash ./scripts/...`。

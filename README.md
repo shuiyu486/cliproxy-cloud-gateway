@@ -62,6 +62,7 @@ flowchart LR
 
 - Windows / Linux 双平台生成部署文件。
 - 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/` 目录。
+- 局域网一键测试脚本可在缺少时自动下载 CLIProxyAPI 和 Caddy 二进制。
 - 默认安全私有监听：`host: "127.0.0.1"`。
 - Caddy 作为公网 HTTPS 入口。
 - 可选上游代理：`Direct`、`Http`、`Socks5`。
@@ -291,9 +292,20 @@ doctor 会检查：
   -LanPort 8080
 ```
 
-脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。它只打印 auth 文件摘要，不打印 token 内容。
+脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。
 
 如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON，CLIProxyAPI 启动后仍可能显示 `0 Codex keys`。
+
+Linux 也可以使用局域网测试脚本：
+
+```bash
+bash ./scripts/start-cloud-gateway-lan.sh \
+  --output-dir /opt/cliproxy-gateway \
+  --server-host 192.168.1.10 \
+  --lan-port 8080
+```
+
+该脚本会在缺少时下载 Linux 版 CLIProxyAPI 和 Caddy；已有二进制则跳过。
 
 ## 调用方接入
 

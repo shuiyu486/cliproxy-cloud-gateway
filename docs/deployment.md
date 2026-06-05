@@ -16,8 +16,8 @@ surface.
 
 - A domain with DNS pointing to the server.
 - Open inbound TCP 80 and 443 for Caddy.
-- CLIProxyAPI installed on the server.
-- Caddy installed on the server.
+- CLIProxyAPI installed on the server, or downloaded by the LAN one-click test script.
+- Caddy installed on the server, or downloaded by the LAN one-click test script.
 - Existing CLIProxyAPI OAuth auth JSON files copied into the generated `auth`
   directory.
 
@@ -81,6 +81,8 @@ caddy validate --config C:\Services\cliproxy-gateway\Caddyfile
 caddy run --config C:\Services\cliproxy-gateway\Caddyfile
 ```
 
+For a LAN smoke test, `Start-CloudGatewayLan.ps1` can download missing Windows CLIProxyAPI and Caddy binaries from fixed GitHub release sources and start both services.
+
 ## Linux
 
 Generate files:
@@ -115,6 +117,8 @@ sudo cp /opt/cliproxy-gateway/Caddyfile /etc/caddy/Caddyfile
 sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
+
+For a LAN smoke test, `scripts/start-cloud-gateway-lan.sh` can download missing Linux CLIProxyAPI and Caddy binaries from fixed GitHub release sources and start both services.
 
 Create a systemd service from `linux/cliproxy.service.template` by replacing:
 
