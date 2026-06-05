@@ -60,6 +60,7 @@ $RequiredFiles = @(
     "templates/cliproxy.config.template.yaml",
     "templates/Caddyfile.template",
     "scripts/New-CloudGateway.ps1",
+    "scripts/Start-CloudGatewayLan.ps1",
     "scripts/new-cloud-gateway.sh",
     "scripts/Test-CloudGatewayDoctor.ps1",
     "scripts/test-cloud-gateway-doctor.sh",
@@ -238,6 +239,48 @@ if (Test-Path -LiteralPath $PowerShellGenerator) {
     } finally {
         if (Test-Path -LiteralPath $TempDir) {
             Remove-Item -LiteralPath $TempDir -Recurse -Force
+        }
+    }
+}
+
+$PowerShellLanStarter = Join-Path $Root "scripts/Start-CloudGatewayLan.ps1"
+if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $PowerShellLanStarter)) {
+    $LanTempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("cliproxy-cloud-gateway-lan-test-" + [System.Guid]::NewGuid().ToString("N"))
+    $LanAuthDir = Join-Path $LanTempDir "auth"
+    try {
+        New-Item -ItemType Directory -Path $LanAuthDir -Force | Out-Null
+        @{
+            type = "codex"
+            email = "lan@example.test"
+            disabled = $false
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $LanAuthDir "codex-lan.json") -Encoding UTF8
+
+        $LanOutput = & $PowerShellLanStarter `
+            -DeploymentDir $LanTempDir `
+            -Domain "lan.example.test" `
+            -ServerHost "192.0.2.10" `
+            -Port 18448 `
+            -LanPort 18080 `
+            -SkipStart 2>&1 | Out-String
+
+        Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "PowerShell LAN starter exits cleanly in SkipStart mode"
+        Assert-Contains $LanOutput "Enabled Codex auth JSON file(s): 1" "PowerShell LAN starter reports enabled Codex auth count"
+        Assert-NotContains $LanOutput "access_token" "PowerShell LAN starter does not print access token values"
+        Assert-NotContains $LanOutput "refresh_token" "PowerShell LAN starter does not print refresh token values"
+
+        $LanCaddy = Read-TextIfPresent (Join-Path $LanTempDir "Caddyfile.lan")
+        $LanConfig = Read-TextIfPresent (Join-Path $LanTempDir "config.yaml")
+        $LanAuth = Get-Content -LiteralPath (Join-Path $LanAuthDir "codex-lan.json") -Raw | ConvertFrom-Json
+        Assert-Contains $LanCaddy "http://192.0.2.10:18080" "PowerShell LAN starter writes LAN HTTP Caddyfile"
+        Assert-Contains $LanCaddy "reverse_proxy 127.0.0.1:18448" "PowerShell LAN starter proxies to local CLIProxyAPI port"
+        Assert-Contains $LanConfig 'host: "127.0.0.1"' "PowerShell LAN starter keeps CLIProxyAPI private"
+        Assert-True -Condition ($LanAuth.websockets -eq $true) -Message "PowerShell LAN starter synchronizes auth metadata through generator"
+    } catch {
+        Assert-True -Condition $false -Message "PowerShell LAN starter scenario"
+        Write-Host $_
+    } finally {
+        if (Test-Path -LiteralPath $LanTempDir) {
+            Remove-Item -LiteralPath $LanTempDir -Recurse -Force
         }
     }
 }

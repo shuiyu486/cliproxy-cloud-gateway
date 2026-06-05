@@ -279,6 +279,22 @@ doctor 会检查：
 - Caddy 是否反代到本机 CLIProxyAPI。
 - auth JSON 的 `websockets` 和 `proxy_url` 是否与配置一致。
 
+## 局域网一键测试
+
+如果想把当前 Windows 物理机临时当作“云服务器”、局域网内其他电脑当作调用方，可以运行：
+
+```powershell
+.\scripts\Start-CloudGatewayLan.ps1 `
+  -DeploymentDir "C:\Services\cliproxy-gateway" `
+  -BinaryPath "C:\Services\cliproxy-gateway\cli-proxy-api\cli-proxy-api.exe" `
+  -ServerHost "192.168.1.10" `
+  -LanPort 8080
+```
+
+脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。它只打印 auth 文件摘要，不打印 token 内容。
+
+如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON，CLIProxyAPI 启动后仍可能显示 `0 Codex keys`。
+
 ## 调用方接入
 
 这里的“调用方”指 Claude Code、Codex 兼容客户端、脚本或任何会请求这个网关的程序。网关本身只需要 `config.yaml` 和 Caddy 配置；`client.env` 只是生成器额外写出的参考文件，用来告诉调用方应该连到哪个 HTTPS 地址、使用哪个客户端 API key。

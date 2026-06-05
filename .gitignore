@@ -1,4 +1,5 @@
 generated/
+cliproxy-gateway/
 auth/
 logs/
 *.local.yaml

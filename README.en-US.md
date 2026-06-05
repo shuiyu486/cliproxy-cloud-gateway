@@ -267,6 +267,27 @@ bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gatew
 Doctor checks generated files, localhost binding, disabled remote management,
 bounded retry, payload filtering, Caddy routing, and auth JSON metadata.
 
+## LAN One-Click Test
+
+To temporarily use a Windows physical machine as the "cloud server" and another
+LAN machine as the caller, run:
+
+```powershell
+.\scripts\Start-CloudGatewayLan.ps1 `
+  -DeploymentDir "C:\Services\cliproxy-gateway" `
+  -BinaryPath "C:\Services\cliproxy-gateway\cli-proxy-api\cli-proxy-api.exe" `
+  -ServerHost "192.168.1.10" `
+  -LanPort 8080
+```
+
+The script regenerates deployment files, synchronizes auth JSON metadata, writes
+`Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. It prints only
+an auth file summary, never token values.
+
+If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
+`type=codex` JSON at the root of `auth/`, so CLIProxyAPI may still report
+`0 Codex keys` after startup.
+
 ## Caller Setup
 
 Here, "caller" means Claude Code, a Codex-compatible client, a script, or any

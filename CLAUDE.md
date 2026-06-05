@@ -21,6 +21,7 @@ client -> Caddy HTTPS -> CLIProxyAPI -> Codex / ChatGPT 上游
 | 修改 CLIProxyAPI 配置默认值 | `templates/cliproxy.config.template.yaml`、`tests/Test-CloudGateway.ps1` |
 | 修改 Caddy 反代逻辑 | `templates/Caddyfile.template`、`docs/deployment.md` |
 | 修改 Windows 生成器 | `scripts/New-CloudGateway.ps1`、`tests/Test-CloudGateway.ps1` |
+| 修改 Windows 局域网一键测试 | `scripts/Start-CloudGatewayLan.ps1`、`tests/Test-CloudGateway.ps1` |
 | 修改 Linux 生成器 | `scripts/new-cloud-gateway.sh`、`tests/Test-CloudGateway.ps1` |
 | 修改 doctor 检查 | `scripts/Test-CloudGatewayDoctor.ps1`、`scripts/test-cloud-gateway-doctor.sh` |
 | 修改 Windows 开机启动方式 | `windows/Register-CLIProxyAPI-Task.ps1` |
@@ -111,7 +112,7 @@ CLIProxyAPI -> Codex / ChatGPT 上游
 修改 PowerShell 脚本后额外确认解析：
 
 ```powershell
-$paths = @('.\scripts\New-CloudGateway.ps1', '.\scripts\Test-CloudGatewayDoctor.ps1', '.\windows\Register-CLIProxyAPI-Task.ps1', '.\tests\Test-CloudGateway.ps1')
+$paths = @('.\scripts\New-CloudGateway.ps1', '.\scripts\Start-CloudGatewayLan.ps1', '.\scripts\Test-CloudGatewayDoctor.ps1', '.\windows\Register-CLIProxyAPI-Task.ps1', '.\tests\Test-CloudGateway.ps1')
 foreach ($path in $paths) {
   $tokens = $null
   $errors = $null
