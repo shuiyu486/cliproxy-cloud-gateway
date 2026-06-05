@@ -283,6 +283,7 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
         Assert-Contains $LanStarterSource "router-for-me/CLIProxyAPI" "PowerShell LAN starter can download CLIProxyAPI from GitHub releases"
         Assert-Contains $LanStarterSource "caddyserver/caddy" "PowerShell LAN starter can download Caddy from GitHub releases"
         Assert-Contains $LanStarterSource "Dependency exists, skip download" "PowerShell LAN starter skips existing binaries"
+        Assert-NotContains $LanStarterSource 'Write-Output "Dependency exists, skip download' "PowerShell LAN starter does not mix dependency messages into returned paths"
     } catch {
         Assert-True -Condition $false -Message "PowerShell LAN starter scenario"
         Write-Host $_

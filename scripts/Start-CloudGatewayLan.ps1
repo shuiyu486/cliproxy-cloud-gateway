@@ -256,7 +256,7 @@ function Install-ReleaseAssetIfMissing {
     )
 
     if (Test-Path -LiteralPath $TargetPath) {
-        Write-Output "Dependency exists, skip download: $TargetPath"
+        Write-Host "Dependency exists, skip download: $TargetPath"
         return
     }
 
@@ -268,7 +268,7 @@ function Install-ReleaseAssetIfMissing {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
     $Asset = Get-GitHubLatestReleaseAsset -Repo $Repo -AssetRegex $AssetRegex -NameCandidates $NameCandidates
-    Write-Output "Downloading $Repo $($Asset.Tag): $($Asset.Name)"
+    Write-Host "Downloading $Repo $($Asset.Tag): $($Asset.Name)"
 
     $TempDir = Join-Path $TargetDir ("download-" + [System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
@@ -288,7 +288,7 @@ function Install-ReleaseAssetIfMissing {
             Copy-Item -LiteralPath $Binary.FullName -Destination $TargetPath -Force
         }
 
-        Write-Output "Installed dependency: $TargetPath"
+        Write-Host "Installed dependency: $TargetPath"
     } finally {
         if (Test-Path -LiteralPath $TempDir) {
             Remove-Item -LiteralPath $TempDir -Recurse -Force
@@ -315,7 +315,7 @@ function Ensure-CaddyBinary {
 
     $Resolved = Resolve-CommandPath -PathOrCommand $PathOrCommand
     if (-not [string]::IsNullOrWhiteSpace($Resolved)) {
-        Write-Output "Dependency exists, skip download: $Resolved"
+        Write-Host "Dependency exists, skip download: $Resolved"
         return $Resolved
     }
 
