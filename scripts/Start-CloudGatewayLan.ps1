@@ -105,6 +105,75 @@ function Get-LanHost {
     return $Address
 }
 
+function Test-UpstreamProxyEndpoint {
+    param(
+        [string]$Mode,
+        [string]$Url
+    )
+
+    if ($Mode -eq "Direct") {
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Url)) {
+        return
+    }
+
+    $Trimmed = $Url.Trim()
+    $HostPort = $Trimmed -replace '^(?i:https?://|socks5://)', ''
+    $HostPort = ($HostPort -split '/')[0]
+    $HostName = $HostPort
+    $ProxyPort = 0
+
+    if ($HostPort -match '^\[(?<host>[^\]]+)\]:(?<port>\d+)$') {
+        $HostName = $Matches.host
+        $ProxyPort = [int]$Matches.port
+    } elseif ($HostPort -match '^(?<host>[^:]+):(?<port>\d+)$') {
+        $HostName = $Matches.host
+        $ProxyPort = [int]$Matches.port
+    } else {
+        Write-Warning "Could not preflight upstream proxy URL: $Url"
+        return
+    }
+
+    $Result = Test-NetConnection -ComputerName $HostName -Port $ProxyPort -WarningAction SilentlyContinue
+    if (-not $Result.TcpTestSucceeded) {
+        throw "Upstream proxy $Mode endpoint is not reachable: $HostName`:$ProxyPort. Check the proxy app/port, or use -UpstreamProxyMode Direct when no upstream proxy is needed."
+    }
+
+    Write-Output "Upstream proxy endpoint is reachable: $HostName`:$ProxyPort"
+}
+
+function Get-FreeTcpPort {
+    param([int]$PreferredPort)
+
+    for ($Candidate = $PreferredPort; $Candidate -le 65535 -and $Candidate -lt ($PreferredPort + 100); $Candidate += 1) {
+        $Listeners = @(Get-NetTCPConnection -LocalPort $Candidate -State Listen -ErrorAction SilentlyContinue)
+        if ($Listeners.Count -eq 0) {
+            return $Candidate
+        }
+    }
+
+    throw "No free TCP port found near $PreferredPort."
+}
+
+function Get-PortOwnerSummary {
+    param([int]$Port)
+
+    $Listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+    $Summaries = @()
+    foreach ($Listener in $Listeners) {
+        $Process = Get-Process -Id $Listener.OwningProcess -ErrorAction SilentlyContinue
+        if ($Process) {
+            $Summaries += "$($Process.ProcessName) pid=$($Process.Id) path=$($Process.Path)"
+        } else {
+            $Summaries += "pid=$($Listener.OwningProcess)"
+        }
+    }
+
+    return ($Summaries -join "; ")
+}
+
 function Write-LanCaddyfile {
     param(
         [string]$Path,
@@ -398,6 +467,15 @@ $BinaryPath = [System.IO.Path]::GetFullPath($BinaryPath)
 
 if (-not (Test-Path -LiteralPath $GeneratorPath)) {
     throw "Generator not found: $GeneratorPath"
+}
+
+Test-UpstreamProxyEndpoint -Mode $UpstreamProxyMode -Url $UpstreamProxyUrl
+
+$ResolvedPort = Get-FreeTcpPort -PreferredPort $Port
+if ($ResolvedPort -ne $Port) {
+    $OwnerSummary = Get-PortOwnerSummary -Port $Port
+    Write-Warning "CLIProxyAPI port $Port is already listening ($OwnerSummary). LAN starter will use free private port $ResolvedPort instead."
+    $Port = $ResolvedPort
 }
 
 $ExistingApiKeys = @(Get-ExistingApiKeys -ConfigPath $ConfigPath)

@@ -292,9 +292,9 @@ doctor 会检查：
   -LanPort 8080
 ```
 
-脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。`-ServerHost` 必须是这台 Windows 机器真实持有的局域网 IPv4；不确定时可以省略，脚本会自动选择一个非虚拟网卡地址。
+脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。`-ServerHost` 必须是这台 Windows 机器真实持有的局域网 IPv4；不确定时可以省略，脚本会自动选择一个非虚拟网卡地址。如果默认 CLIProxyAPI 私有端口 `8317` 已被其它本机服务占用，局域网测试脚本会自动选择附近空闲端口，并让 Caddy 反代到该端口。
 
-如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON。CLIProxyAPI 启动窗口最开始可能先显示 `0 clients`，随后日志里应出现 `full client load complete - 1 clients (1 auth files ...)`；Codex OAuth JSON 会计入 `auth files`，不一定显示为 `Codex keys`。
+如果指定 `-UpstreamProxyMode Http` 或 `Socks5`，脚本会先检查 `-UpstreamProxyUrl` 的主机端口是否可连接；例如本机实际开放的是 `127.0.0.1:7890` 时，不要误写成未监听的 `127.0.0.1:7897`。如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON。CLIProxyAPI 启动窗口最开始可能先显示 `0 clients`，随后日志里应出现 `full client load complete - 1 clients (1 auth files ...)`；Codex OAuth JSON 会计入 `auth files`，不一定显示为 `Codex keys`。
 
 Linux 也可以使用局域网测试脚本：
 

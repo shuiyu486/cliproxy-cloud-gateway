@@ -287,8 +287,13 @@ The script regenerates deployment files, synchronizes auth JSON metadata, writes
 release sources; existing binaries are skipped, not overwritten. It prints only
 an auth file summary, never token values. `-ServerHost` must be a LAN IPv4
 address actually assigned to this Windows machine; omit it if unsure, and the
-script will choose a non-virtual adapter address automatically.
+script will choose a non-virtual adapter address automatically. If the default
+private CLIProxyAPI port `8317` is already used by another local service, the LAN
+test script automatically picks a nearby free port and points Caddy to it.
 
+When `-UpstreamProxyMode Http` or `Socks5` is used, the script preflights the
+`-UpstreamProxyUrl` host and port. For example, if the local proxy actually
+listens on `127.0.0.1:7890`, do not point it at an unused `127.0.0.1:7897`.
 If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
 `type=codex` JSON at the root of `auth/`. The CLIProxyAPI window may initially
 print `0 clients`; after the async load it should log `full client load complete
