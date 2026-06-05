@@ -285,7 +285,9 @@ The script regenerates deployment files, synchronizes auth JSON metadata, writes
 `Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. If
 `cli-proxy-api.exe` or `caddy.exe` is missing, it downloads from fixed GitHub
 release sources; existing binaries are skipped, not overwritten. It prints only
-an auth file summary, never token values.
+an auth file summary, never token values. `-ServerHost` must be a LAN IPv4
+address actually assigned to this Windows machine; omit it if unsure, and the
+script will choose a non-virtual adapter address automatically.
 
 If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
 `type=codex` JSON at the root of `auth/`. The CLIProxyAPI window may initially

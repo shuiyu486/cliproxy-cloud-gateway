@@ -58,22 +58,46 @@ function Get-ExistingApiKeys {
     return $Keys
 }
 
-function Get-LanHost {
-    param([string]$RequestedHost)
-
-    if (-not [string]::IsNullOrWhiteSpace($RequestedHost)) {
-        return $RequestedHost
-    }
-
-    $Address = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+function Get-LocalLanIPv4Addresses {
+    $Addresses = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object {
             $_.IPAddress -notlike "127.*" -and
             $_.IPAddress -notlike "169.254.*" -and
             $_.PrefixOrigin -ne "WellKnown"
         } |
-        Sort-Object InterfaceMetric, InterfaceIndex |
-        Select-Object -First 1 -ExpandProperty IPAddress
+        Select-Object IPAddress, InterfaceAlias, InterfaceMetric, InterfaceIndex)
 
+    $Physical = @($Addresses | Where-Object {
+        $_.InterfaceAlias -notmatch "(?i)vEthernet|VMware|VirtualBox|Loopback|WSL|Panda|Hyper-V"
+    })
+
+    if ($Physical.Count -gt 0) {
+        return @($Physical | Sort-Object InterfaceMetric, InterfaceIndex)
+    }
+
+    return @($Addresses | Sort-Object InterfaceMetric, InterfaceIndex)
+}
+
+function Get-LanHost {
+    param([string]$RequestedHost)
+
+    $LocalAddresses = @(Get-LocalLanIPv4Addresses)
+    if (-not [string]::IsNullOrWhiteSpace($RequestedHost)) {
+        $ParsedAddress = $null
+        if ([System.Net.IPAddress]::TryParse($RequestedHost, [ref]$ParsedAddress)) {
+            $Matched = @($LocalAddresses | Where-Object { $_.IPAddress -eq $RequestedHost })
+            if ($Matched.Count -eq 0) {
+                $Available = @($LocalAddresses | ForEach-Object { "$($_.IPAddress) ($($_.InterfaceAlias))" }) -join ", "
+                if ([string]::IsNullOrWhiteSpace($Available)) {
+                    $Available = "none"
+                }
+                throw "ServerHost $RequestedHost is not assigned to this Windows machine. Available LAN IPv4 address(es): $Available"
+            }
+        }
+        return $RequestedHost
+    }
+
+    $Address = $LocalAddresses | Select-Object -First 1 -ExpandProperty IPAddress
     if ([string]::IsNullOrWhiteSpace($Address)) {
         return "127.0.0.1"
     }

@@ -260,7 +260,6 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
         $LanOutput = & $PowerShellLanStarter `
             -DeploymentDir $LanTempDir `
             -Domain "lan.example.test" `
-            -ServerHost "192.0.2.10" `
             -Port 18448 `
             -LanPort 18080 `
             -SkipStart 2>&1 | Out-String
@@ -275,7 +274,7 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
         $LanCaddy = Read-TextIfPresent (Join-Path $LanTempDir "Caddyfile.lan")
         $LanConfig = Read-TextIfPresent (Join-Path $LanTempDir "config.yaml")
         $LanAuth = Get-Content -LiteralPath (Join-Path $LanAuthDir "codex-lan.json") -Raw | ConvertFrom-Json
-        Assert-Contains $LanCaddy "http://192.0.2.10:18080" "PowerShell LAN starter writes LAN HTTP Caddyfile"
+        Assert-Contains $LanCaddy ":18080" "PowerShell LAN starter writes LAN HTTP Caddyfile"
         Assert-Contains $LanCaddy "reverse_proxy 127.0.0.1:18448" "PowerShell LAN starter proxies to local CLIProxyAPI port"
         Assert-Contains $LanConfig 'host: "127.0.0.1"' "PowerShell LAN starter keeps CLIProxyAPI private"
         Assert-True -Condition ($LanAuth.websockets -eq $true) -Message "PowerShell LAN starter synchronizes auth metadata through generator"
@@ -284,6 +283,7 @@ if ((Test-Path -LiteralPath $PowerShellGenerator) -and (Test-Path -LiteralPath $
         Assert-Contains $LanStarterSource "router-for-me/CLIProxyAPI" "PowerShell LAN starter can download CLIProxyAPI from GitHub releases"
         Assert-Contains $LanStarterSource "caddyserver/caddy" "PowerShell LAN starter can download Caddy from GitHub releases"
         Assert-Contains $LanStarterSource "Dependency exists, skip download" "PowerShell LAN starter skips existing binaries"
+        Assert-Contains $LanStarterSource "ServerHost `$RequestedHost is not assigned" "PowerShell LAN starter rejects non-local ServerHost IPs"
         Assert-Contains $LanStarterSource "Wait-CLIProxyClientLoadStatus" "PowerShell LAN starter waits for CLIProxyAPI client load status"
         Assert-Contains $LanStarterSource "Codex OAuth files are counted as auth files" "PowerShell LAN starter explains auth files versus Codex keys"
         Assert-NotContains $LanStarterSource 'Write-Output "Dependency exists, skip download' "PowerShell LAN starter does not mix dependency messages into returned paths"
