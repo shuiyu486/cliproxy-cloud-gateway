@@ -16,8 +16,8 @@ surface.
 
 - A domain with DNS pointing to the server.
 - Open inbound TCP 80 and 443 for Caddy.
-- CLIProxyAPI installed on the server, or downloaded by the LAN one-click test script.
-- Caddy installed on the server, or downloaded by the LAN one-click test script.
+- CLIProxyAPI installed on the server, or downloaded by the Linux cloud installer / LAN one-click test script.
+- Caddy installed on the server, or downloaded by the Linux cloud installer / LAN one-click test script.
 - Existing CLIProxyAPI OAuth auth JSON files copied into the generated `auth`
   directory.
 
@@ -83,9 +83,27 @@ caddy run --config C:\Services\cliproxy-gateway\Caddyfile
 
 For a LAN smoke test, `Start-CloudGatewayLan.ps1` can download missing Windows CLIProxyAPI and Caddy binaries from fixed GitHub release sources and start both services. If `-ServerHost` is provided, it must be a LAN IPv4 address assigned to the Windows machine; otherwise the script selects a non-virtual adapter address. If private port `8317` is already occupied, the script chooses a nearby free private port and points Caddy to it. When an upstream proxy is configured, the script preflights the proxy host and port before starting services. The CLIProxyAPI console may initially print `0 clients`; check the later `full client load complete` log line. Codex OAuth JSON is counted as `auth files`, not necessarily as `Codex keys`.
 
+For long-term Windows LAN use, do not forward the LAN port from the router to the internet. Prefer a Windows Firewall rule that allows only the trusted Mac's fixed LAN IP to reach the LAN port. The Windows host itself can use the same Caddy/CLIProxyAPI pair through `http://127.0.0.1:<LanPort>` instead of starting another CLIProxyAPI process.
+
 ## Linux
 
-Generate files:
+For one-click cloud deployment:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+The installer generates deployment files, downloads missing Linux CLIProxyAPI/Caddy binaries from fixed GitHub release sources, renders the CLIProxyAPI systemd service from `linux/cliproxy.service.template`, installs the generated Caddyfile, reloads Caddy when a systemd Caddy service exists, and runs doctor checks. It prints paths and status only; API keys remain in `client.env` and are not printed.
+
+For a generate-only dry run that does not change services, add:
+
+```bash
+--skip-download --skip-systemd --skip-caddy-reload
+```
+
+Generate files manually:
 
 ```bash
 bash ./scripts/new-cloud-gateway.sh \

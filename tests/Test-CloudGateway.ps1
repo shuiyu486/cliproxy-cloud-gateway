@@ -62,6 +62,7 @@ $RequiredFiles = @(
     "scripts/New-CloudGateway.ps1",
     "scripts/Start-CloudGatewayLan.ps1",
     "scripts/start-cloud-gateway-lan.sh",
+    "scripts/install-cloud-gateway.sh",
     "scripts/new-cloud-gateway.sh",
     "scripts/Test-CloudGatewayDoctor.ps1",
     "scripts/test-cloud-gateway-doctor.sh",
@@ -393,6 +394,7 @@ if (Test-Path -LiteralPath $PowerShellGenerator) {
 
 $BashGenerator = Join-Path $Root "scripts/new-cloud-gateway.sh"
 $BashLanStarter = Join-Path $Root "scripts/start-cloud-gateway-lan.sh"
+$BashCloudInstaller = Join-Path $Root "scripts/install-cloud-gateway.sh"
 $Bash = Get-Command bash -ErrorAction SilentlyContinue
 if ((Test-Path -LiteralPath $BashGenerator) -and $Bash) {
     $EscapedBashGenerator = $BashGenerator.Replace("'", "'\''")
@@ -476,6 +478,48 @@ grep -q 'reverse_proxy 127.0.0.1:18449' '$BashTempDir/Caddyfile.lan'
             Assert-Contains $BashLanSource "router-for-me/CLIProxyAPI" "Bash LAN starter can download CLIProxyAPI from GitHub releases"
             Assert-Contains $BashLanSource "caddyserver/caddy" "Bash LAN starter can download Caddy from GitHub releases"
             Assert-Contains $BashLanSource "Dependency exists, skip download" "Bash LAN starter skips existing binaries"
+        }
+
+        if (Test-Path -LiteralPath $BashCloudInstaller) {
+            $EscapedBashCloudInstaller = $BashCloudInstaller.Replace("'", "'\''")
+            $BashCloudInstallerPathOutput = & $Bash.Source -lc "if command -v wslpath >/dev/null 2>&1; then wslpath -a '$EscapedBashCloudInstaller'; elif command -v cygpath >/dev/null 2>&1; then cygpath -u '$EscapedBashCloudInstaller'; else printf '%s\n' '$EscapedBashCloudInstaller'; fi"
+            $BashCloudInstallerForShell = ($BashCloudInstallerPathOutput | Select-Object -First 1)
+            & $Bash.Source -n $BashCloudInstallerForShell
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash cloud installer has valid syntax"
+
+            $BashCloudDir = "$BashTempDir/cloud-install"
+            $BashCloudOutput = & $Bash.Source $BashCloudInstallerForShell `
+                --domain "install.example.test" `
+                --install-dir $BashCloudDir `
+                --port 18450 `
+                --api-key "sk-install-test" `
+                --skip-download `
+                --skip-systemd `
+                --skip-caddy-reload 2>&1 | Out-String
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash cloud installer exits cleanly in non-privileged mode"
+            Assert-Contains $BashCloudOutput "skip-systemd is set" "Bash cloud installer can skip systemd for dry runs"
+            Assert-Contains $BashCloudOutput "skip-caddy-reload is set" "Bash cloud installer can skip Caddy reload for dry runs"
+            Assert-NotContains $BashCloudOutput "sk-install-test" "Bash cloud installer does not print API key"
+
+            $BashCloudCheck = @"
+test -f '$BashCloudDir/config.yaml' &&
+test -f '$BashCloudDir/Caddyfile' &&
+test -f '$BashCloudDir/client.env' &&
+grep -q 'host: "127.0.0.1"' '$BashCloudDir/config.yaml' &&
+grep -q 'reverse_proxy 127.0.0.1:18450' '$BashCloudDir/Caddyfile' &&
+grep -q 'ANTHROPIC_BASE_URL=https://install.example.test' '$BashCloudDir/client.env' &&
+grep -q 'ANTHROPIC_AUTH_TOKEN=sk-install-test' '$BashCloudDir/client.env'
+"@
+            & $Bash.Source -lc $BashCloudCheck
+            Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Bash cloud installer generates expected deployment files"
+
+            $BashCloudInstallerSource = Read-TextIfPresent $BashCloudInstaller
+            Assert-Contains $BashCloudInstallerSource "router-for-me/CLIProxyAPI" "Bash cloud installer can download CLIProxyAPI from GitHub releases"
+            Assert-Contains $BashCloudInstallerSource "caddyserver/caddy" "Bash cloud installer can download Caddy from GitHub releases"
+            Assert-Contains $BashCloudInstallerSource "linux/cliproxy.service.template" "Bash cloud installer renders Linux systemd service template"
+            Assert-Contains $BashCloudInstallerSource "systemctl enable --now" "Bash cloud installer can enable systemd service"
+            Assert-Contains $BashCloudInstallerSource "systemctl reload caddy" "Bash cloud installer can reload Caddy"
+            Assert-Contains $BashCloudInstallerSource "Client API key is written to client.env; it was not printed" "Bash cloud installer avoids printing API keys"
         }
 
         $BashDoctor = Join-Path $Root "scripts/test-cloud-gateway-doctor.sh"

@@ -64,6 +64,7 @@ Key points:
 
 - Windows and Linux generators.
 - Generates `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
+- Linux cloud one-click installer can generate config, download dependencies, install systemd, and reload Caddy.
 - LAN one-click test scripts can download CLIProxyAPI and Caddy binaries when missing.
 - Private-by-default listener: `host: "127.0.0.1"`.
 - Caddy as the public HTTPS edge.
@@ -101,6 +102,18 @@ Check the generated deployment:
 ```
 
 ### Linux
+
+For a cloud server, prefer the one-click installer:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+It generates deployment files, downloads Linux CLIProxyAPI/Caddy when missing, installs the CLIProxyAPI systemd service, installs and reloads the Caddyfile, then runs doctor checks. It does not print API keys; caller settings are written to `/opt/cliproxy-gateway/client.env`.
+
+If you only want to generate files without installing services:
 
 ```bash
 bash ./scripts/new-cloud-gateway.sh \
@@ -251,6 +264,42 @@ The generator scans enabled `type=codex` JSON files under `auth/`:
 - Http/Socks5 mode writes the normalized `proxy_url`;
 - token fields and full auth JSON are never printed.
 
+## Cloud One-Click Install
+
+On a Linux cloud server, run:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+Default behavior:
+
+- Calls `new-cloud-gateway.sh` to generate `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
+- Downloads CLIProxyAPI and Caddy from fixed GitHub release sources when missing; existing files are not overwritten.
+- Renders and enables the CLIProxyAPI systemd service from `linux/cliproxy.service.template`.
+- Installs the generated Caddyfile to `/etc/caddy/Caddyfile` and tries `systemctl reload caddy`.
+- Runs doctor checks.
+- Prints paths, domain, and status only; it does not print the API key from `client.env`.
+
+Common options:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --service-user cliproxy \
+  --upstream-proxy-mode socks5 \
+  --upstream-proxy-url 127.0.0.1:7897
+```
+
+For a generate-only dry run that does not change system services, add:
+
+```bash
+--skip-download --skip-systemd --skip-caddy-reload
+```
+
 ## Doctor Checks
 
 Windows:
@@ -353,6 +402,10 @@ reach Codex / ChatGPT upstream reliably.
 No. It is designed for yourself or a small trusted user group. If you need
 quotas, billing, concurrency controls, and many users, use a more complete API
 gateway.
+
+**Is it safe to keep a Windows LAN port open long term?**
+
+Use it only on a trusted LAN, and do not forward the LAN port from your router to the internet. For long-term Mac-to-Windows use, restrict the Windows Firewall rule to the Mac's fixed LAN IP. The Windows machine itself can reuse the same Caddy/CLIProxyAPI pair by setting `ANTHROPIC_BASE_URL` to `http://127.0.0.1:<LanPort>`; it does not need a second CLIProxyAPI process.
 
 **Will API keys be printed?**
 

@@ -62,6 +62,7 @@ flowchart LR
 
 - Windows / Linux 双平台生成部署文件。
 - 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/` 目录。
+- Linux 云端一键部署脚本可生成配置、下载依赖、安装 systemd 服务并重载 Caddy。
 - 局域网一键测试脚本可在缺少时自动下载 CLIProxyAPI 和 Caddy 二进制。
 - 默认安全私有监听：`host: "127.0.0.1"`。
 - Caddy 作为公网 HTTPS 入口。
@@ -98,6 +99,18 @@ flowchart LR
 ```
 
 ### Linux
+
+云服务器推荐使用一键部署脚本：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+脚本会生成部署文件，缺少时下载 Linux 版 CLIProxyAPI/Caddy，安装 CLIProxyAPI systemd 服务，安装并重载 Caddyfile，然后运行 doctor 检查。它不会打印 API key；客户端接入信息写入 `/opt/cliproxy-gateway/client.env`。
+
+如果只想生成文件、不安装服务：
 
 ```bash
 bash ./scripts/new-cloud-gateway.sh \
@@ -257,6 +270,42 @@ ssh user@server 'chmod 600 /opt/cliproxy-gateway/auth/*.json'
 - `Http` / `Socks5` 模式会写入归一化后的 `proxy_url`。
 - 不会输出 `access_token`、`refresh_token`、`id_token` 或完整 auth JSON。
 
+## 云端一键部署
+
+Linux 云服务器可以直接运行：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+默认行为：
+
+- 调用 `new-cloud-gateway.sh` 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/`。
+- 缺少时从固定 GitHub release 来源下载 CLIProxyAPI 和 Caddy；已有文件不覆盖。
+- 从 `linux/cliproxy.service.template` 生成并启用 CLIProxyAPI systemd 服务。
+- 把生成的 Caddyfile 安装到 `/etc/caddy/Caddyfile` 并尝试 `systemctl reload caddy`。
+- 运行 doctor 检查。
+- 只打印路径、域名和状态，不打印 `client.env` 里的 API key。
+
+常用可选参数：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --service-user cliproxy \
+  --upstream-proxy-mode socks5 \
+  --upstream-proxy-url 127.0.0.1:7897
+```
+
+如果你只想预生成配置、不改系统服务，可以加：
+
+```bash
+--skip-download --skip-systemd --skip-caddy-reload
+```
+
 ## Doctor 检查
 
 Windows:
@@ -339,6 +388,10 @@ Caddy 负责公网 HTTPS、证书自动申请/续期和标准反代。CLIProxyAP
 **这个项目适合很多用户共享吗？**
 
 不适合做复杂多租户平台。它适合自己或少量可信用户。如果需要额度、计费、并发和大量用户管理，应考虑更完整的网关系统。
+
+**Windows 长期开放 LAN 端口安全吗？**
+
+只建议在可信局域网内使用，且不要在路由器上把 LAN 端口转发到公网。长期让 Mac 访问 Windows 网关时，推荐在 Windows 防火墙规则里把 TCP 端口限制为只允许 Mac 的固定局域网 IP。Windows 本机也可以复用同一套 Caddy/CLIProxyAPI，把 `ANTHROPIC_BASE_URL` 设为 `http://127.0.0.1:<LanPort>`，不需要再启动另一份 CLIProxyAPI。
 
 **API key 会不会被打印出来？**
 
