@@ -81,7 +81,7 @@ caddy validate --config C:\Services\cliproxy-gateway\Caddyfile
 caddy run --config C:\Services\cliproxy-gateway\Caddyfile
 ```
 
-For a LAN smoke test, `Start-CloudGatewayLan.ps1` can download missing Windows CLIProxyAPI and Caddy binaries from fixed GitHub release sources and start both services.
+For a LAN smoke test, `Start-CloudGatewayLan.ps1` can download missing Windows CLIProxyAPI and Caddy binaries from fixed GitHub release sources and start both services. The CLIProxyAPI console may initially print `0 clients`; check the later `full client load complete` log line. Codex OAuth JSON is counted as `auth files`, not necessarily as `Codex keys`.
 
 ## Linux
 

@@ -335,6 +335,29 @@ function Ensure-CaddyBinary {
     return $TargetPath
 }
 
+function Wait-CLIProxyClientLoadStatus {
+    param(
+        [string]$LogsDir,
+        [int]$TimeoutSeconds = 8
+    )
+
+    $MainLogPath = Join-Path $LogsDir "main.log"
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        if (Test-Path -LiteralPath $MainLogPath) {
+            $Line = Get-Content -LiteralPath $MainLogPath -Tail 80 -ErrorAction SilentlyContinue |
+                Where-Object { $_ -match "full client load complete" } |
+                Select-Object -Last 1
+            if (-not [string]::IsNullOrWhiteSpace($Line)) {
+                return $Line
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    return ""
+}
+
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $GeneratorPath = Join-Path $ScriptDir "New-CloudGateway.ps1"
@@ -415,8 +438,25 @@ if (-not (Test-Path -LiteralPath $BinaryPath)) {
 }
 
 $CliArgs = @("--config", $ConfigPath)
-Start-Process -FilePath $BinaryPath -ArgumentList $CliArgs -WorkingDirectory $DeploymentDir
+$CliProcess = Start-Process -FilePath $BinaryPath -ArgumentList $CliArgs -WorkingDirectory $DeploymentDir -PassThru
 Write-Output "Started CLIProxyAPI in a new window."
+Start-Sleep -Milliseconds 700
+if ($CliProcess.HasExited) {
+    Write-Warning "CLIProxyAPI exited quickly. Check the new window or logs for details; the port may already be in use."
+} else {
+    $LoadStatus = Wait-CLIProxyClientLoadStatus -LogsDir (Join-Path $DeploymentDir "logs")
+    if (-not [string]::IsNullOrWhiteSpace($LoadStatus)) {
+        Write-Output "CLIProxyAPI load status: $LoadStatus"
+        if ($LoadStatus -match "\((\d+) auth files") {
+            $LoadedAuthFiles = [int]$Matches[1]
+            if ($LoadedAuthFiles -gt 0) {
+                Write-Output "Note: Codex OAuth files are counted as auth files; '0 Codex keys' can be normal when auth files > 0."
+            }
+        }
+    } else {
+        Write-Warning "Could not confirm CLIProxyAPI auth load from logs within the timeout."
+    }
+}
 
 if (-not $SkipCaddy) {
     $ResolvedCaddyPath = Resolve-CommandPath -PathOrCommand $CaddyPath

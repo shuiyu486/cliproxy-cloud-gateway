@@ -288,8 +288,10 @@ release sources; existing binaries are skipped, not overwritten. It prints only
 an auth file summary, never token values.
 
 If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
-`type=codex` JSON at the root of `auth/`, so CLIProxyAPI may still report
-`0 Codex keys` after startup.
+`type=codex` JSON at the root of `auth/`. The CLIProxyAPI window may initially
+print `0 clients`; after the async load it should log `full client load complete
+- 1 clients (1 auth files ...)`. Codex OAuth JSON is counted as `auth files`,
+not necessarily as `Codex keys`.
 
 Linux can use the LAN test script too:
 

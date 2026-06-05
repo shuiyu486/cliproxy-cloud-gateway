@@ -294,7 +294,7 @@ doctor 会检查：
 
 脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。
 
-如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON，CLIProxyAPI 启动后仍可能显示 `0 Codex keys`。
+如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON。CLIProxyAPI 启动窗口最开始可能先显示 `0 clients`，随后日志里应出现 `full client load complete - 1 clients (1 auth files ...)`；Codex OAuth JSON 会计入 `auth files`，不一定显示为 `Codex keys`。
 
 Linux 也可以使用局域网测试脚本：
 
