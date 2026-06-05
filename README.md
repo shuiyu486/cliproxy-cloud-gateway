@@ -9,6 +9,59 @@
 
 项目地址：<https://github.com/shuiyu486/cliproxy-cloud-gateway>
 
+## 先选使用模式
+
+| 场景 | 推荐入口 |
+|---|---|
+| Linux 云服务器正式部署 | `bash ./scripts/install-cloud-gateway.sh --domain api.example.com --install-dir /opt/cliproxy-gateway` |
+| 只生成配置文件 | `scripts/new-cloud-gateway.sh` 或 `scripts/New-CloudGateway.ps1` |
+| Windows 临时/长期当局域网网关 | `scripts/Start-CloudGatewayLan.ps1` |
+| 检查已有部署 | `scripts/test-cloud-gateway-doctor.sh` 或 `scripts/Test-CloudGatewayDoctor.ps1` |
+
+如果你是第一次部署到云服务器，优先看“Linux 云端一键部署”。如果只是复现 Windows + Mac 的局域网用法，看“局域网模式”。
+
+## 快速开始
+
+### Linux 云端一键部署
+
+推荐在云服务器上运行：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+脚本会：
+
+- 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/`。
+- 缺少时从固定 GitHub release 来源下载 CLIProxyAPI 和 Caddy；已有文件不覆盖。
+- 从 `linux/cliproxy.service.template` 生成并启用 CLIProxyAPI systemd 服务。
+- 安装并重载 Caddyfile。
+- 运行 doctor 检查。
+- 只打印路径、域名和状态，不打印 API key。
+
+如果云服务器访问 Codex / ChatGPT 上游需要代理：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --upstream-proxy-mode socks5 \
+  --upstream-proxy-url 127.0.0.1:7897
+```
+
+如果只想预生成文件、不改 systemd/Caddy：
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --skip-download \
+  --skip-systemd \
+  --skip-caddy-reload
+```
+
 ## 项目如何生效
 
 ```text
@@ -60,9 +113,9 @@ flowchart LR
 
 ## 功能特性
 
+- Linux 云端一键部署脚本可生成配置、下载依赖、安装 systemd 服务并重载 Caddy。
 - Windows / Linux 双平台生成部署文件。
 - 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/` 目录。
-- Linux 云端一键部署脚本可生成配置、下载依赖、安装 systemd 服务并重载 Caddy。
 - 局域网一键测试脚本可在缺少时自动下载 CLIProxyAPI 和 Caddy 二进制。
 - 默认安全私有监听：`host: "127.0.0.1"`。
 - Caddy 作为公网 HTTPS 入口。
@@ -71,68 +124,6 @@ flowchart LR
 - 生成器不向 stdout 打印 API key。
 - 提供 Windows / Linux doctor 脚本检查部署结果。
 - 保留 CodexToClaude 中适合云部署的 CLIProxyAPI 稳定性配置。
-
-## 快速开始
-
-### Windows
-
-```powershell
-.\scripts\New-CloudGateway.ps1 `
-  -Domain "api.example.com" `
-  -OutputDir "C:\Services\cliproxy-gateway"
-```
-
-如果云服务器访问 Codex / ChatGPT 上游需要 SOCKS5 代理：
-
-```powershell
-.\scripts\New-CloudGateway.ps1 `
-  -Domain "api.example.com" `
-  -OutputDir "C:\Services\cliproxy-gateway" `
-  -UpstreamProxyMode Socks5 `
-  -UpstreamProxyUrl "127.0.0.1:7897"
-```
-
-检查生成结果：
-
-```powershell
-.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
-```
-
-### Linux
-
-云服务器推荐使用一键部署脚本：
-
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway
-```
-
-脚本会生成部署文件，缺少时下载 Linux 版 CLIProxyAPI/Caddy，安装 CLIProxyAPI systemd 服务，安装并重载 Caddyfile，然后运行 doctor 检查。它不会打印 API key；客户端接入信息写入 `/opt/cliproxy-gateway/client.env`。
-
-如果只想生成文件、不安装服务：
-
-```bash
-bash ./scripts/new-cloud-gateway.sh \
-  --domain api.example.com \
-  --output-dir /opt/cliproxy-gateway
-```
-
-如果云服务器访问 Codex / ChatGPT 上游需要 SOCKS5 代理：
-
-```bash
-bash ./scripts/new-cloud-gateway.sh \
-  --domain api.example.com \
-  --output-dir /opt/cliproxy-gateway \
-  --upstream-proxy-mode socks5 \
-  --upstream-proxy-url 127.0.0.1:7897
-```
-
-检查生成结果：
-
-```bash
-bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
-```
 
 ## 生成文件
 
@@ -163,6 +154,75 @@ flowchart LR
 
 `client.env` 不是 CLIProxyAPI 或 Caddy 的运行依赖，只是方便你把接入信息复制到本机或其他机器上的调用方。它会包含敏感 API key，已经被 `.gitignore` 排除。不要提交它。
 
+## 只生成配置
+
+Windows：
+
+```powershell
+.\scripts\New-CloudGateway.ps1 `
+  -Domain "api.example.com" `
+  -OutputDir "C:\Services\cliproxy-gateway"
+```
+
+Linux：
+
+```bash
+bash ./scripts/new-cloud-gateway.sh \
+  --domain api.example.com \
+  --output-dir /opt/cliproxy-gateway
+```
+
+## Doctor 检查
+
+检查生成结果：
+
+```powershell
+.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
+```
+
+```bash
+bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
+```
+
+## 获取 Codex OAuth JSON
+
+Linux 云服务器不需要图形浏览器；推荐在服务器 SSH 里使用 CLIProxyAPI 的设备码登录：
+
+```bash
+cd /opt/cliproxy-gateway
+./cli-proxy-api -config ./config.yaml -codex-device-login
+```
+
+命令会在终端输出登录 URL / 设备码。你可以在自己电脑的浏览器里打开并授权；服务器端 CLIProxyAPI 会继续等待授权结果，并把 Codex OAuth JSON 写入 `config.yaml` 指定的 `auth-dir`：
+
+```text
+/opt/cliproxy-gateway/auth/*.json
+```
+
+也可以在可信本机用同版本 CLIProxyAPI 登录生成 JSON，再复制到云服务器：
+
+```bash
+scp codex*.json user@server:/opt/cliproxy-gateway/auth/
+ssh user@server 'chmod 600 /opt/cliproxy-gateway/auth/*.json'
+```
+
+注意：
+
+- 这里需要的是 CLIProxyAPI 自己登录生成的 `type=codex` OAuth JSON。不要直接把 `~/.codex/auth.json` 当作这里的 OAuth 文件。
+- OAuth JSON 通常不是按本机硬件绑定，但它等同账号登录凭据。不要提交 GitHub、不要贴日志、不要发给别人。
+- 不要让本机和云服务器长期并发使用同一份 OAuth JSON，refresh token 轮换可能导致其中一边失效。
+- 如果本机生成的 JSON 在云服务器上失败，优先检查服务器出口 IP、代理出口、账号权限或上游风控；这类失败通常不是文件路径问题。
+
+## Auth JSON 同步
+
+生成器会扫描 `auth/` 目录下 enabled `type=codex` 的 JSON 文件：
+
+- 缺少 `websockets` 时补 `true`。
+- 已有 `websockets: false` 时保持原值。
+- `Direct` 模式会移除旧的 `proxy_url`。
+- `Http` / `Socks5` 模式会写入归一化后的 `proxy_url`。
+- 不会输出 `access_token`、`refresh_token`、`id_token` 或完整 auth JSON。
+
 ## 上游代理
 
 `UpstreamProxyMode` 只控制这一段：
@@ -180,6 +240,52 @@ CLIProxyAPI -> Codex / ChatGPT 上游
 | `Socks5` | `127.0.0.1:7897` 会归一化为 `socks5://127.0.0.1:7897`。 |
 
 建议优先使用 `Direct`。只有当服务器直连上游不稳定、必须走固定代理出口时，再使用 `Http` 或 `Socks5`。
+
+## 局域网模式
+
+如果想把当前 Windows 物理机临时或长期当作“云服务器”、局域网内其他电脑当作调用方，可以运行：
+
+```powershell
+.\scripts\Start-CloudGatewayLan.ps1 `
+  -DeploymentDir "C:\Services\cliproxy-gateway" `
+  -BinaryPath "C:\Services\cliproxy-gateway\cli-proxy-api\cli-proxy-api.exe" `
+  -ServerHost "192.168.1.10" `
+  -LanPort 8080
+```
+
+脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。`-ServerHost` 必须是这台 Windows 机器真实持有的局域网 IPv4；不确定时可以省略，脚本会自动选择一个非虚拟网卡地址。如果默认 CLIProxyAPI 私有端口 `8317` 已被其它本机服务占用，局域网测试脚本会自动选择附近空闲端口，并让 Caddy 反代到该端口。
+
+如果指定 `-UpstreamProxyMode Http` 或 `Socks5`，脚本会先检查 `-UpstreamProxyUrl` 的主机端口是否可连接；例如本机实际开放的是 `127.0.0.1:7890` 时，不要误写成未监听的 `127.0.0.1:7897`。如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON。CLIProxyAPI 启动窗口最开始可能先显示 `0 clients`，随后日志里应出现 `full client load complete - 1 clients (1 auth files ...)`；Codex OAuth JSON 会计入 `auth files`，不一定显示为 `Codex keys`。
+
+Linux 也可以使用局域网测试脚本：
+
+```bash
+bash ./scripts/start-cloud-gateway-lan.sh \
+  --output-dir /opt/cliproxy-gateway \
+  --server-host 192.168.1.10 \
+  --lan-port 8080
+```
+
+该脚本会在缺少时下载 Linux 版 CLIProxyAPI 和 Caddy；已有二进制则跳过。
+
+## 调用方接入
+
+这里的“调用方”指 Claude Code、Codex 兼容客户端、脚本或任何会请求这个网关的程序。网关本身只需要 `config.yaml` 和 Caddy 配置；`client.env` 只是生成器额外写出的参考文件，用来告诉调用方应该连到哪个 HTTPS 地址、使用哪个客户端 API key。
+
+部署完成后，可以查看 `client.env`：
+
+```bash
+cat /opt/cliproxy-gateway/client.env
+```
+
+内容类似：
+
+```env
+ANTHROPIC_BASE_URL=https://api.example.com
+ANTHROPIC_AUTH_TOKEN=sk-...
+```
+
+把这两个值填入你的 Claude Code / Anthropic-compatible 客户端即可。如果调用方和网关不在同一台机器，只需要把这两个值配置到调用方所在环境，不需要复制整个部署目录。
 
 ## 安全默认值
 
@@ -231,150 +337,6 @@ payload:
 - bounded retry：避免失败被长时间重试伪装成卡住。
 - `payload.filter`：过滤 Claude Code 请求中容易影响 Codex 适配的 thinking/reasoning 字段。
 
-## 获取 Codex OAuth JSON
-
-Linux 云服务器不需要图形浏览器；推荐在服务器 SSH 里使用 CLIProxyAPI 的设备码登录：
-
-```bash
-cd /opt/cliproxy-gateway
-./cli-proxy-api -config ./config.yaml -codex-device-login
-```
-
-命令会在终端输出登录 URL / 设备码。你可以在自己电脑的浏览器里打开并授权；服务器端 CLIProxyAPI 会继续等待授权结果，并把 Codex OAuth JSON 写入 `config.yaml` 指定的 `auth-dir`：
-
-```text
-/opt/cliproxy-gateway/auth/*.json
-```
-
-也可以在可信本机用同版本 CLIProxyAPI 登录生成 JSON，再复制到云服务器：
-
-```bash
-scp codex*.json user@server:/opt/cliproxy-gateway/auth/
-ssh user@server 'chmod 600 /opt/cliproxy-gateway/auth/*.json'
-```
-
-注意：
-
-- 这里需要的是 CLIProxyAPI 自己登录生成的 `type=codex` OAuth JSON。不要直接把 `~/.codex/auth.json` 当作这里的 OAuth 文件。
-- OAuth JSON 通常不是按本机硬件绑定，但它等同账号登录凭据。不要提交 GitHub、不要贴日志、不要发给别人。
-- 不要让本机和云服务器长期并发使用同一份 OAuth JSON，refresh token 轮换可能导致其中一边失效。
-- 如果本机生成的 JSON 在云服务器上失败，优先检查服务器出口 IP、代理出口、账号权限或上游风控；这类失败通常不是文件路径问题。
-
-## Auth JSON 同步
-
-生成器会扫描 `auth/` 目录下 enabled `type=codex` 的 JSON 文件：
-
-- 缺少 `websockets` 时补 `true`。
-- 已有 `websockets: false` 时保持原值。
-- `Direct` 模式会移除旧的 `proxy_url`。
-- `Http` / `Socks5` 模式会写入归一化后的 `proxy_url`。
-- 不会输出 `access_token`、`refresh_token`、`id_token` 或完整 auth JSON。
-
-## 云端一键部署
-
-Linux 云服务器可以直接运行：
-
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway
-```
-
-默认行为：
-
-- 调用 `new-cloud-gateway.sh` 生成 `config.yaml`、`Caddyfile`、`client.env`、`auth/` 和 `logs/`。
-- 缺少时从固定 GitHub release 来源下载 CLIProxyAPI 和 Caddy；已有文件不覆盖。
-- 从 `linux/cliproxy.service.template` 生成并启用 CLIProxyAPI systemd 服务。
-- 把生成的 Caddyfile 安装到 `/etc/caddy/Caddyfile` 并尝试 `systemctl reload caddy`。
-- 运行 doctor 检查。
-- 只打印路径、域名和状态，不打印 `client.env` 里的 API key。
-
-常用可选参数：
-
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway \
-  --service-user cliproxy \
-  --upstream-proxy-mode socks5 \
-  --upstream-proxy-url 127.0.0.1:7897
-```
-
-如果你只想预生成配置、不改系统服务，可以加：
-
-```bash
---skip-download --skip-systemd --skip-caddy-reload
-```
-
-## Doctor 检查
-
-Windows:
-
-```powershell
-.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
-```
-
-Linux:
-
-```bash
-bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
-```
-
-doctor 会检查：
-
-- `config.yaml`、`Caddyfile`、`client.env` 是否存在。
-- CLIProxyAPI 是否绑定 `127.0.0.1`。
-- 远程管理和控制面板是否关闭。
-- retry、payload filter、Codex UA、header passthrough 是否存在。
-- Caddy 是否反代到本机 CLIProxyAPI。
-- auth JSON 的 `websockets` 和 `proxy_url` 是否与配置一致。
-
-## 局域网一键测试
-
-如果想把当前 Windows 物理机临时当作“云服务器”、局域网内其他电脑当作调用方，可以运行：
-
-```powershell
-.\scripts\Start-CloudGatewayLan.ps1 `
-  -DeploymentDir "C:\Services\cliproxy-gateway" `
-  -BinaryPath "C:\Services\cliproxy-gateway\cli-proxy-api\cli-proxy-api.exe" `
-  -ServerHost "192.168.1.10" `
-  -LanPort 8080
-```
-
-脚本会重新生成部署文件、同步 auth JSON metadata、生成 `Caddyfile.lan`，并在新窗口启动 CLIProxyAPI 和 Caddy。缺少 `cli-proxy-api.exe` 或 `caddy.exe` 时，它会从固定 GitHub release 来源下载；如果目标文件已存在则跳过，不覆盖。它只打印 auth 文件摘要，不打印 token 内容。`-ServerHost` 必须是这台 Windows 机器真实持有的局域网 IPv4；不确定时可以省略，脚本会自动选择一个非虚拟网卡地址。如果默认 CLIProxyAPI 私有端口 `8317` 已被其它本机服务占用，局域网测试脚本会自动选择附近空闲端口，并让 Caddy 反代到该端口。
-
-如果指定 `-UpstreamProxyMode Http` 或 `Socks5`，脚本会先检查 `-UpstreamProxyUrl` 的主机端口是否可连接；例如本机实际开放的是 `127.0.0.1:7890` 时，不要误写成未监听的 `127.0.0.1:7897`。如果脚本提示 `Enabled Codex auth JSON file(s): 0`，说明 `auth/` 根层没有 enabled `type=codex` JSON。CLIProxyAPI 启动窗口最开始可能先显示 `0 clients`，随后日志里应出现 `full client load complete - 1 clients (1 auth files ...)`；Codex OAuth JSON 会计入 `auth files`，不一定显示为 `Codex keys`。
-
-Linux 也可以使用局域网测试脚本：
-
-```bash
-bash ./scripts/start-cloud-gateway-lan.sh \
-  --output-dir /opt/cliproxy-gateway \
-  --server-host 192.168.1.10 \
-  --lan-port 8080
-```
-
-该脚本会在缺少时下载 Linux 版 CLIProxyAPI 和 Caddy；已有二进制则跳过。
-
-## 调用方接入
-
-这里的“调用方”指 Claude Code、Codex 兼容客户端、脚本或任何会请求这个网关的程序。网关本身只需要 `config.yaml` 和 Caddy 配置；`client.env` 只是生成器额外写出的参考文件，用来告诉调用方应该连到哪个 HTTPS 地址、使用哪个客户端 API key。
-
-部署完成后，可以查看 `client.env`：
-
-```bash
-cat /opt/cliproxy-gateway/client.env
-```
-
-内容类似：
-
-```env
-ANTHROPIC_BASE_URL=https://api.example.com
-ANTHROPIC_AUTH_TOKEN=sk-...
-```
-
-把这两个值填入你的 Claude Code / Anthropic-compatible 客户端即可。如果调用方和网关不在同一台机器，只需要把这两个值配置到调用方所在环境，不需要复制整个部署目录。
-
 ## 常见问题
 
 **为什么需要 Caddy？**
@@ -385,17 +347,22 @@ Caddy 负责公网 HTTPS、证书自动申请/续期和标准反代。CLIProxyAP
 
 可以。默认就是 `Direct`。只有服务器访问 Codex / ChatGPT 上游不稳定时，才需要配置上游代理。
 
-**这个项目适合很多用户共享吗？**
-
-不适合做复杂多租户平台。它适合自己或少量可信用户。如果需要额度、计费、并发和大量用户管理，应考虑更完整的网关系统。
-
 **Windows 长期开放 LAN 端口安全吗？**
 
 只建议在可信局域网内使用，且不要在路由器上把 LAN 端口转发到公网。长期让 Mac 访问 Windows 网关时，推荐在 Windows 防火墙规则里把 TCP 端口限制为只允许 Mac 的固定局域网 IP。Windows 本机也可以复用同一套 Caddy/CLIProxyAPI，把 `ANTHROPIC_BASE_URL` 设为 `http://127.0.0.1:<LanPort>`，不需要再启动另一份 CLIProxyAPI。
 
+**这个项目适合很多用户共享吗？**
+
+不适合做复杂多租户平台。它适合自己或少量可信用户。如果需要额度、计费、并发和大量用户管理，应考虑更完整的网关系统。
+
 **API key 会不会被打印出来？**
 
 不会。生成器只打印文件路径，API key 写入 `config.yaml` 和 `client.env`。这些生成物已被 `.gitignore` 排除。
+
+## 更多文档
+
+- 详细部署说明：[`docs/deployment.md`](docs/deployment.md)
+- Linux systemd 模板：[`linux/cliproxy.service.template`](linux/cliproxy.service.template)
 
 ## 测试
 
@@ -403,7 +370,7 @@ Caddy 负责公网 HTTPS、证书自动申请/续期和标准反代。CLIProxyAP
 .\tests\Test-CloudGateway.ps1
 ```
 
-测试会覆盖模板默认值、Windows/Linux 生成器、上游代理归一化、auth metadata 同步、doctor 脚本和文档关键内容。
+测试会覆盖模板默认值、Windows/Linux 生成器、Linux 云端安装器、上游代理归一化、auth metadata 同步、doctor 脚本和文档关键内容。
 
 ## 许可证
 

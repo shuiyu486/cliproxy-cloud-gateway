@@ -11,6 +11,59 @@ CLIProxyAPI + Caddy configuration for yourself or a small trusted user group.
 
 Repository: <https://github.com/shuiyu486/cliproxy-cloud-gateway>
 
+## Choose a Mode First
+
+| Scenario | Recommended entry |
+|---|---|
+| Linux cloud server production deployment | `bash ./scripts/install-cloud-gateway.sh --domain api.example.com --install-dir /opt/cliproxy-gateway` |
+| Generate files only | `scripts/new-cloud-gateway.sh` or `scripts/New-CloudGateway.ps1` |
+| Windows as a temporary/long-term LAN gateway | `scripts/Start-CloudGatewayLan.ps1` |
+| Check an existing deployment | `scripts/test-cloud-gateway-doctor.sh` or `scripts/Test-CloudGatewayDoctor.ps1` |
+
+For first-time cloud deployment, start with "Linux Cloud One-Click Install". For the Windows + Mac LAN workflow, use "LAN Mode".
+
+## Quick Start
+
+### Linux Cloud One-Click Install
+
+On a cloud server, run:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway
+```
+
+The installer:
+
+- Generates `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
+- Downloads CLIProxyAPI and Caddy from fixed GitHub release sources when missing; existing files are not overwritten.
+- Renders and enables the CLIProxyAPI systemd service from `linux/cliproxy.service.template`.
+- Installs and reloads the Caddyfile.
+- Runs doctor checks.
+- Prints paths, domain, and status only; it does not print API keys.
+
+If the server needs a proxy to reach Codex / ChatGPT upstream:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --upstream-proxy-mode socks5 \
+  --upstream-proxy-url 127.0.0.1:7897
+```
+
+For a generate-only dry run that does not change systemd/Caddy:
+
+```bash
+bash ./scripts/install-cloud-gateway.sh \
+  --domain api.example.com \
+  --install-dir /opt/cliproxy-gateway \
+  --skip-download \
+  --skip-systemd \
+  --skip-caddy-reload
+```
+
 ## How It Works
 
 ```text
@@ -62,9 +115,9 @@ Key points:
 
 ## Features
 
+- Linux cloud one-click installer can generate config, download dependencies, install systemd, and reload Caddy.
 - Windows and Linux generators.
 - Generates `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
-- Linux cloud one-click installer can generate config, download dependencies, install systemd, and reload Caddy.
 - LAN one-click test scripts can download CLIProxyAPI and Caddy binaries when missing.
 - Private-by-default listener: `host: "127.0.0.1"`.
 - Caddy as the public HTTPS edge.
@@ -72,70 +125,7 @@ Key points:
 - Automatic enabled `type=codex` OAuth JSON metadata sync.
 - Generators do not print API keys to stdout.
 - Windows and Linux doctor scripts.
-- Carries the CLIProxyAPI hardening defaults that are relevant to cloud
-  deployment.
-
-## Quick Start
-
-### Windows
-
-```powershell
-.\scripts\New-CloudGateway.ps1 `
-  -Domain "api.example.com" `
-  -OutputDir "C:\Services\cliproxy-gateway"
-```
-
-If the server needs a SOCKS5 proxy to reach Codex / ChatGPT upstream:
-
-```powershell
-.\scripts\New-CloudGateway.ps1 `
-  -Domain "api.example.com" `
-  -OutputDir "C:\Services\cliproxy-gateway" `
-  -UpstreamProxyMode Socks5 `
-  -UpstreamProxyUrl "127.0.0.1:7897"
-```
-
-Check the generated deployment:
-
-```powershell
-.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
-```
-
-### Linux
-
-For a cloud server, prefer the one-click installer:
-
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway
-```
-
-It generates deployment files, downloads Linux CLIProxyAPI/Caddy when missing, installs the CLIProxyAPI systemd service, installs and reloads the Caddyfile, then runs doctor checks. It does not print API keys; caller settings are written to `/opt/cliproxy-gateway/client.env`.
-
-If you only want to generate files without installing services:
-
-```bash
-bash ./scripts/new-cloud-gateway.sh \
-  --domain api.example.com \
-  --output-dir /opt/cliproxy-gateway
-```
-
-If the server needs a SOCKS5 proxy to reach Codex / ChatGPT upstream:
-
-```bash
-bash ./scripts/new-cloud-gateway.sh \
-  --domain api.example.com \
-  --output-dir /opt/cliproxy-gateway \
-  --upstream-proxy-mode socks5 \
-  --upstream-proxy-url 127.0.0.1:7897
-```
-
-Check the generated deployment:
-
-```bash
-bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
-```
+- Carries the CLIProxyAPI hardening defaults that are relevant to cloud deployment.
 
 ## Generated Files
 
@@ -166,63 +156,32 @@ flowchart LR
 
 `client.env` is not required by CLIProxyAPI or Caddy at runtime. It is only a convenience file for copying caller-side connection settings to your local machine or another host. It contains a sensitive API key and is git-ignored. Do not commit it.
 
-## Upstream Proxy
+## Generate Files Only
 
-`UpstreamProxyMode` controls only this leg:
+Windows:
 
-```text
-CLIProxyAPI -> Codex / ChatGPT upstream
+```powershell
+.\scripts\New-CloudGateway.ps1 `
+  -Domain "api.example.com" `
+  -OutputDir "C:\Services\cliproxy-gateway"
 ```
 
-It does not affect users connecting to your public Caddy domain.
+Linux:
 
-| Mode | Behavior |
-|---|---|
-| `Direct` | Default. Omit `proxy-url` and remove stale auth JSON `proxy_url`. |
-| `Http` | Normalize `127.0.0.1:7897` to `http://127.0.0.1:7897`. |
-| `Socks5` | Normalize `127.0.0.1:7897` to `socks5://127.0.0.1:7897`. |
+```bash
+bash ./scripts/new-cloud-gateway.sh \
+  --domain api.example.com \
+  --output-dir /opt/cliproxy-gateway
+```
 
-Prefer `Direct`. Use `Http` or `Socks5` only when the server must reach upstream
-through a known proxy exit.
+Check the generated deployment:
 
-## Security Defaults
+```powershell
+.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
+```
 
-Generated CLIProxyAPI config keeps these defaults:
-
-```yaml
-host: "127.0.0.1"
-
-tls:
-  enable: false
-
-remote-management:
-  allow-remote: false
-  secret-key: ""
-  disable-control-panel: true
-
-codex-header-defaults:
-  user-agent: 'codex_cli_rs/0.114.0 (Mac OS 14.2.0; x86_64) vscode/1.111.0'
-
-passthrough-headers: true
-
-quota-exceeded:
-  switch-project: true
-  switch-preview-model: true
-  antigravity-credits: false
-
-request-retry: 1
-max-retry-credentials: 1
-max-retry-interval: 5
-
-payload:
-  filter:
-    - models:
-        - name: "gpt-*"
-          protocol: "codex"
-      params:
-        - "reasoning"
-        - "reasoning.effort"
-        - "thinking"
+```bash
+bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
 ```
 
 ## Get Codex OAuth JSON
@@ -264,63 +223,27 @@ The generator scans enabled `type=codex` JSON files under `auth/`:
 - Http/Socks5 mode writes the normalized `proxy_url`;
 - token fields and full auth JSON are never printed.
 
-## Cloud One-Click Install
+## Upstream Proxy
 
-On a Linux cloud server, run:
+`UpstreamProxyMode` controls only this leg:
 
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway
+```text
+CLIProxyAPI -> Codex / ChatGPT upstream
 ```
 
-Default behavior:
+It does not affect users connecting to your public Caddy domain.
 
-- Calls `new-cloud-gateway.sh` to generate `config.yaml`, `Caddyfile`, `client.env`, `auth/`, and `logs/`.
-- Downloads CLIProxyAPI and Caddy from fixed GitHub release sources when missing; existing files are not overwritten.
-- Renders and enables the CLIProxyAPI systemd service from `linux/cliproxy.service.template`.
-- Installs the generated Caddyfile to `/etc/caddy/Caddyfile` and tries `systemctl reload caddy`.
-- Runs doctor checks.
-- Prints paths, domain, and status only; it does not print the API key from `client.env`.
+| Mode | Behavior |
+|---|---|
+| `Direct` | Default. Omit `proxy-url` and remove stale auth JSON `proxy_url`. |
+| `Http` | Normalize `127.0.0.1:7897` to `http://127.0.0.1:7897`. |
+| `Socks5` | Normalize `127.0.0.1:7897` to `socks5://127.0.0.1:7897`. |
 
-Common options:
+Prefer `Direct`. Use `Http` or `Socks5` only when the server must reach upstream through a known proxy exit.
 
-```bash
-bash ./scripts/install-cloud-gateway.sh \
-  --domain api.example.com \
-  --install-dir /opt/cliproxy-gateway \
-  --service-user cliproxy \
-  --upstream-proxy-mode socks5 \
-  --upstream-proxy-url 127.0.0.1:7897
-```
+## LAN Mode
 
-For a generate-only dry run that does not change system services, add:
-
-```bash
---skip-download --skip-systemd --skip-caddy-reload
-```
-
-## Doctor Checks
-
-Windows:
-
-```powershell
-.\scripts\Test-CloudGatewayDoctor.ps1 -DeploymentDir "C:\Services\cliproxy-gateway"
-```
-
-Linux:
-
-```bash
-bash ./scripts/test-cloud-gateway-doctor.sh --deployment-dir /opt/cliproxy-gateway
-```
-
-Doctor checks generated files, localhost binding, disabled remote management,
-bounded retry, payload filtering, Caddy routing, and auth JSON metadata.
-
-## LAN One-Click Test
-
-To temporarily use a Windows physical machine as the "cloud server" and another
-LAN machine as the caller, run:
+To temporarily or long-term use a Windows physical machine as the "cloud server" and another LAN machine as the caller, run:
 
 ```powershell
 .\scripts\Start-CloudGatewayLan.ps1 `
@@ -330,24 +253,9 @@ LAN machine as the caller, run:
   -LanPort 8080
 ```
 
-The script regenerates deployment files, synchronizes auth JSON metadata, writes
-`Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. If
-`cli-proxy-api.exe` or `caddy.exe` is missing, it downloads from fixed GitHub
-release sources; existing binaries are skipped, not overwritten. It prints only
-an auth file summary, never token values. `-ServerHost` must be a LAN IPv4
-address actually assigned to this Windows machine; omit it if unsure, and the
-script will choose a non-virtual adapter address automatically. If the default
-private CLIProxyAPI port `8317` is already used by another local service, the LAN
-test script automatically picks a nearby free port and points Caddy to it.
+The script regenerates deployment files, synchronizes auth JSON metadata, writes `Caddyfile.lan`, and starts CLIProxyAPI and Caddy in new windows. If `cli-proxy-api.exe` or `caddy.exe` is missing, it downloads from fixed GitHub release sources; existing binaries are skipped, not overwritten. It prints only an auth file summary, never token values. `-ServerHost` must be a LAN IPv4 address actually assigned to this Windows machine; omit it if unsure, and the script will choose a non-virtual adapter address automatically. If the default private CLIProxyAPI port `8317` is already used by another local service, the LAN test script automatically picks a nearby free port and points Caddy to it.
 
-When `-UpstreamProxyMode Http` or `Socks5` is used, the script preflights the
-`-UpstreamProxyUrl` host and port. For example, if the local proxy actually
-listens on `127.0.0.1:7890`, do not point it at an unused `127.0.0.1:7897`.
-If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled
-`type=codex` JSON at the root of `auth/`. The CLIProxyAPI window may initially
-print `0 clients`; after the async load it should log `full client load complete
-- 1 clients (1 auth files ...)`. Codex OAuth JSON is counted as `auth files`,
-not necessarily as `Codex keys`.
+When `-UpstreamProxyMode Http` or `Socks5` is used, the script preflights the `-UpstreamProxyUrl` host and port. For example, if the local proxy actually listens on `127.0.0.1:7890`, do not point it at an unused `127.0.0.1:7897`. If it reports `Enabled Codex auth JSON file(s): 0`, there is no enabled `type=codex` JSON at the root of `auth/`. The CLIProxyAPI window may initially print `0 clients`; after the async load it should log `full client load complete - 1 clients (1 auth files ...)`. Codex OAuth JSON is counted as `auth files`, not necessarily as `Codex keys`.
 
 Linux can use the LAN test script too:
 
@@ -358,15 +266,11 @@ bash ./scripts/start-cloud-gateway-lan.sh \
   --lan-port 8080
 ```
 
-It downloads Linux CLIProxyAPI and Caddy binaries when missing; existing binaries
-are skipped.
+It downloads Linux CLIProxyAPI and Caddy binaries when missing; existing binaries are skipped.
 
 ## Caller Setup
 
-Here, "caller" means Claude Code, a Codex-compatible client, a script, or any
-program that sends requests to this gateway. The gateway itself only needs
-`config.yaml` and the Caddy configuration; `client.env` is an extra reference
-file generated so callers know which HTTPS URL and client API key to use.
+Here, "caller" means Claude Code, a Codex-compatible client, a script, or any program that sends requests to this gateway. The gateway itself only needs `config.yaml` and the Caddy configuration; `client.env` is an extra reference file generated so callers know which HTTPS URL and client API key to use.
 
 After deployment, read `client.env`:
 
@@ -381,36 +285,74 @@ ANTHROPIC_BASE_URL=https://api.example.com
 ANTHROPIC_AUTH_TOKEN=sk-...
 ```
 
-Copy these values into your Claude Code / Anthropic-compatible client. If the
-caller runs on a different machine, configure only these two values on that
-machine; you do not need to copy the whole deployment directory.
+Copy these values into your Claude Code / Anthropic-compatible client. If the caller runs on a different machine, configure only these two values on that machine; you do not need to copy the whole deployment directory.
+
+## Security Defaults
+
+Generated CLIProxyAPI config keeps these defaults:
+
+```yaml
+host: "127.0.0.1"
+
+tls:
+  enable: false
+
+remote-management:
+  allow-remote: false
+  secret-key: ""
+  disable-control-panel: true
+
+codex-header-defaults:
+  user-agent: 'codex_cli_rs/0.114.0 (Mac OS 14.2.0; x86_64) vscode/1.111.0'
+
+passthrough-headers: true
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+  antigravity-credits: false
+
+request-retry: 1
+max-retry-credentials: 1
+max-retry-interval: 5
+
+payload:
+  filter:
+    - models:
+        - name: "gpt-*"
+          protocol: "codex"
+      params:
+        - "reasoning"
+        - "reasoning.effort"
+        - "thinking"
+```
 
 ## FAQ
 
 **Why Caddy?**
 
-Caddy handles public HTTPS, automatic certificate management, and reverse
-proxying. CLIProxyAPI remains private and easier to reason about.
+Caddy handles public HTTPS, automatic certificate management, and reverse proxying. CLIProxyAPI remains private and easier to reason about.
 
 **Can I skip upstream proxy?**
 
-Yes. `Direct` is the default. Use upstream proxy only when the server cannot
-reach Codex / ChatGPT upstream reliably.
-
-**Is this for many users?**
-
-No. It is designed for yourself or a small trusted user group. If you need
-quotas, billing, concurrency controls, and many users, use a more complete API
-gateway.
+Yes. `Direct` is the default. Use upstream proxy only when the server cannot reach Codex / ChatGPT upstream reliably.
 
 **Is it safe to keep a Windows LAN port open long term?**
 
 Use it only on a trusted LAN, and do not forward the LAN port from your router to the internet. For long-term Mac-to-Windows use, restrict the Windows Firewall rule to the Mac's fixed LAN IP. The Windows machine itself can reuse the same Caddy/CLIProxyAPI pair by setting `ANTHROPIC_BASE_URL` to `http://127.0.0.1:<LanPort>`; it does not need a second CLIProxyAPI process.
 
+**Is this for many users?**
+
+No. It is designed for yourself or a small trusted user group. If you need quotas, billing, concurrency controls, and many users, use a more complete API gateway.
+
 **Will API keys be printed?**
 
-No. Keys are written to `config.yaml` and `client.env`; both generated outputs
-are git-ignored.
+No. Keys are written to `config.yaml` and `client.env`; both generated outputs are git-ignored.
+
+## More Docs
+
+- Detailed deployment guide: [`docs/deployment.md`](docs/deployment.md)
+- Linux systemd template: [`linux/cliproxy.service.template`](linux/cliproxy.service.template)
 
 ## Test
 
@@ -420,5 +362,4 @@ are git-ignored.
 
 ## License
 
-Add a `LICENSE` file before publishing if needed. MIT License is a reasonable
-default for this kind of deployment helper.
+Add a `LICENSE` file before publishing if needed. MIT License is a reasonable default for this kind of deployment helper.
