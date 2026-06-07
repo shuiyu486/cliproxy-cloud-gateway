@@ -77,7 +77,11 @@ Assert-Check ($Config -match '(?m)^request-retry:\s*1\s*$') "request retry is bo
 Assert-Check ($Config -match '(?m)^max-retry-credentials:\s*1\s*$') "credential retry is bounded"
 Assert-Check ($Config -match '(?m)^max-retry-interval:\s*5\s*$') "retry interval is bounded"
 Assert-Check ($Config -match '(?m)^\s*antigravity-credits:\s*false\s*$') "Antigravity credit fallback is disabled"
-Assert-Check ($Config -match '"reasoning"' -and $Config -match '"reasoning\.effort"' -and $Config -match '"thinking"') "Codex payload filter is present"
+if ($Config -match '"reasoning"' -or $Config -match '"reasoning\.effort"' -or $Config -match '"thinking"') {
+    Write-Output "[INFO] Codex payload filter is configured; reasoning/thinking fields are disabled."
+} else {
+    Write-Output "[INFO] Codex reasoning/thinking passthrough is enabled."
+}
 Assert-Check ($Config -match 'codex-header-defaults:\s*\r?\n\s+user-agent:') "Codex header defaults are present"
 Assert-Check ($Caddy -match 'reverse_proxy\s+127\.0\.0\.1:') "Caddy proxies to localhost"
 

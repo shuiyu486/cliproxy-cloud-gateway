@@ -197,7 +197,15 @@ quota-exceeded:
 request-retry: 1
 max-retry-credentials: 1
 max-retry-interval: 5
+```
 
+The generated config does not include `payload.filter` by default. Reasoning,
+thinking, and effort fields pass through so Claude Code `/effort` or client-side
+settings can take effect naturally. If thinking output becomes too long, repeated
+characters appear, or the TUI renders thinking deltas poorly, you can manually add
+this block to `config.yaml`:
+
+```yaml
 payload:
   filter:
     - models:

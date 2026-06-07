@@ -70,7 +70,7 @@ max-retry-interval: 5
 - `quota-exceeded.switch-project: true`
 - `quota-exceeded.switch-preview-model: true`
 - `quota-exceeded.antigravity-credits: false`
-- `payload.filter` 过滤 `reasoning`、`reasoning.effort`、`thinking`
+- 默认不配置 `payload.filter`，透传 `reasoning`、`reasoning.effort`、`thinking`；仅在用户手动需要关闭思考相关字段时添加该 filter。
 - `streaming.bootstrap-retries: 1`
 - `streaming.keepalive-seconds: 15`
 

@@ -83,7 +83,11 @@ if [[ -f "$CONFIG_PATH" ]]; then
   assert_check "grep -Eq '^max-retry-credentials: 1$' '$CONFIG_PATH'" 'credential retry is bounded'
   assert_check "grep -Eq '^max-retry-interval: 5$' '$CONFIG_PATH'" 'retry interval is bounded'
   assert_check "grep -Eq '^  antigravity-credits: false$' '$CONFIG_PATH'" 'Antigravity credit fallback is disabled'
-  assert_check "grep -q '\"reasoning.effort\"' '$CONFIG_PATH' && grep -q '\"thinking\"' '$CONFIG_PATH'" 'Codex payload filter is present'
+  if grep -q '\"reasoning\"' "$CONFIG_PATH" || grep -q '\"reasoning.effort\"' "$CONFIG_PATH" || grep -q '\"thinking\"' "$CONFIG_PATH"; then
+    printf '[INFO] Codex payload filter is configured; reasoning/thinking fields are disabled.\n'
+  else
+    printf '[INFO] Codex reasoning/thinking passthrough is enabled.\n'
+  fi
   assert_check "grep -q 'codex-header-defaults:' '$CONFIG_PATH'" 'Codex header defaults are present'
 fi
 

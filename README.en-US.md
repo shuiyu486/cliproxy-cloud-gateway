@@ -315,7 +315,11 @@ quota-exceeded:
 request-retry: 1
 max-retry-credentials: 1
 max-retry-interval: 5
+```
 
+By default, no `payload.filter` is configured, so Claude Code reasoning/thinking/effort fields pass through and the caller's `/effort` or client-side settings can take effect naturally. If thinking output becomes too long, repeated characters appear, the TUI renders thinking deltas poorly, or you need to temporarily disable thinking-related fields, add this manually to `config.yaml`:
+
+```yaml
 payload:
   filter:
     - models:

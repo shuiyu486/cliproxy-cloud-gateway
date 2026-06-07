@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:Passed = 0
@@ -43,7 +43,7 @@ function Read-TextIfPresent {
     param([string]$Path)
 
     if (Test-Path -LiteralPath $Path) {
-        return Get-Content -LiteralPath $Path -Raw
+        return Get-Content -LiteralPath $Path -Raw -Encoding UTF8
     }
 
     return $null
@@ -180,10 +180,10 @@ if ($null -ne $ConfigTemplate) {
     Assert-Contains $ConfigTemplate 'request-retry: 1' "CLIProxyAPI template keeps request retry bounded"
     Assert-Contains $ConfigTemplate 'max-retry-credentials: 1' "CLIProxyAPI template keeps credential retry bounded"
     Assert-Contains $ConfigTemplate 'max-retry-interval: 5' "CLIProxyAPI template keeps retry interval bounded"
-    Assert-Contains $ConfigTemplate 'payload:' "CLIProxyAPI template has payload filter"
-    Assert-Contains $ConfigTemplate '"reasoning"' "CLIProxyAPI template filters reasoning"
-    Assert-Contains $ConfigTemplate '"reasoning.effort"' "CLIProxyAPI template filters reasoning effort"
-    Assert-Contains $ConfigTemplate '"thinking"' "CLIProxyAPI template filters thinking"
+    Assert-NotContains $ConfigTemplate 'payload:' "CLIProxyAPI template does not rewrite request payloads by default"
+    Assert-NotContains $ConfigTemplate '"reasoning"' "CLIProxyAPI template passes through reasoning by default"
+    Assert-NotContains $ConfigTemplate '"reasoning.effort"' "CLIProxyAPI template passes through reasoning effort by default"
+    Assert-NotContains $ConfigTemplate '"thinking"' "CLIProxyAPI template passes through thinking by default"
 }
 
 $CaddyTemplatePath = Join-Path $Root "templates/Caddyfile.template"
@@ -228,7 +228,9 @@ if (Test-Path -LiteralPath $PowerShellGenerator) {
         Assert-Contains $GeneratedConfig 'max-retry-credentials: 1' "generated config keeps credential retry bounded"
         Assert-Contains $GeneratedConfig 'max-retry-interval: 5' "generated config keeps retry interval bounded"
         Assert-Contains $GeneratedConfig 'antigravity-credits: false' "generated config disables Antigravity fallback"
-        Assert-Contains $GeneratedConfig '"reasoning.effort"' "generated config filters reasoning effort"
+        Assert-NotContains $GeneratedConfig '"reasoning"' "generated config passes through reasoning by default"
+        Assert-NotContains $GeneratedConfig '"reasoning.effort"' "generated config passes through reasoning effort by default"
+        Assert-NotContains $GeneratedConfig '"thinking"' "generated config passes through thinking by default"
         Assert-Contains $GeneratedConfig $DefaultCodexUserAgent "generated config includes Codex user-agent"
         Assert-Contains $GeneratedCaddy "api.example.test" "generated Caddyfile includes domain"
         Assert-Contains $GeneratedCaddy "reverse_proxy 127.0.0.1:18444" "generated Caddyfile proxies to requested port"

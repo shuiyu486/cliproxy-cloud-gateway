@@ -28,8 +28,8 @@ The enhanced config also needs these CodexToClaude-derived defaults:
 - Bounded retry settings: `request-retry: 1`, `max-retry-credentials: 1`, and
   `max-retry-interval: 5`.
 - `quota-exceeded.antigravity-credits: false`.
-- `payload.filter` for `reasoning`, `reasoning.effort`, and `thinking` on Codex
-  models.
+- No default `payload.filter`, so `reasoning`, `reasoning.effort`, and `thinking`
+  pass through to Codex models unless the operator manually adds a compatibility filter.
 - Optional upstream proxy support. Default is `Direct`, which omits
   `proxy-url`; `Http` and `Socks5` write normalized `proxy-url` values.
 

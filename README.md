@@ -315,16 +315,6 @@ quota-exceeded:
 request-retry: 1
 max-retry-credentials: 1
 max-retry-interval: 5
-
-payload:
-  filter:
-    - models:
-        - name: "gpt-*"
-          protocol: "codex"
-      params:
-        - "reasoning"
-        - "reasoning.effort"
-        - "thinking"
 ```
 
 说明：
@@ -335,7 +325,20 @@ payload:
 - `codex-header-defaults.user-agent`：为 Codex OAuth 上游请求提供稳定 UA fallback。
 - `passthrough-headers: true`：透传上游 `X-Codex-*` 用量 header。
 - bounded retry：避免失败被长时间重试伪装成卡住。
-- `payload.filter`：过滤 Claude Code 请求中容易影响 Codex 适配的 thinking/reasoning 字段。
+
+默认不配置 `payload.filter`，会透传 Claude Code 当前请求中的 reasoning/thinking/effort 字段，让 `/effort` 或客户端自身设置自然生效。如果遇到 thinking 输出过长、重复字符、TUI 展示异常，或需要临时关闭思考相关字段，可以手动在 `config.yaml` 中添加：
+
+```yaml
+payload:
+  filter:
+    - models:
+        - name: "gpt-*"
+          protocol: "codex"
+      params:
+        - "reasoning"
+        - "reasoning.effort"
+        - "thinking"
+```
 
 ## 常见问题
 
