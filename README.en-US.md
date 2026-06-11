@@ -260,6 +260,90 @@ sudo systemctl reload caddy
 
 Once the services are healthy, callers only need the public URL and API key from `client.env`; see "Caller Setup".
 
+## After Installation
+
+After installation and after placing `auth/*.json`, you usually only need to do three things:
+
+1. Restart CLIProxyAPI so it reloads `auth/*.json` and `config.yaml`.
+2. Copy `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` from `client.env` to the caller environment.
+3. Make callers use the public HTTPS domain; do not call `127.0.0.1:8317` directly.
+
+`client.env` is only a caller reference. It is not a server-side runtime dependency, and neither CLIProxyAPI nor Caddy reads it while running.
+
+## First Verification
+
+First check that the public HTTPS entry is reachable. A `404` / `405` response is still useful here because it proves the domain, TLS, and reverse proxy path reached the server:
+
+```bash
+curl -i https://api.example.com/v1/messages
+```
+
+Then use the URL and client API key from `client.env` to send a minimal Anthropic-compatible `/v1/messages` request:
+
+```bash
+source /opt/cliproxy-gateway/client.env
+
+curl "$ANTHROPIC_BASE_URL/v1/messages" \
+  -H "content-type: application/json" \
+  -H "x-api-key: $ANTHROPIC_AUTH_TOKEN" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "gpt-5",
+    "max_tokens": 64,
+    "messages": [
+      {"role": "user", "content": "ping"}
+    ]
+  }'
+```
+
+If this returns an authentication or upstream error, check CLIProxyAPI logs first, then verify `auth/*.json`, the client API key, and server egress to Codex / ChatGPT upstream.
+
+## Routine Maintenance
+
+Common checks:
+
+```bash
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+sudo journalctl -u cliproxy -n 100 --no-pager
+```
+
+What to restart after changes:
+
+| Change | Action |
+|---|---|
+| `auth/*.json` | `sudo systemctl restart cliproxy` |
+| `config.yaml` | `sudo systemctl restart cliproxy` |
+| `Caddyfile` | Run `sudo caddy validate --config /etc/caddy/Caddyfile`, then `sudo systemctl reload caddy` |
+| Caller environment variables | Restart or reopen the caller only; no server-side restart needed |
+
+Caddy automatic certificate renewal applies only to the default Caddy path: the domain resolves to this server, and Caddy can directly own public ports 80/443.
+
+## Upgrade and Backup
+
+Before upgrading, back up these files, especially `auth/` and `client.env`:
+
+```bash
+sudo tar -czf /root/cliproxy-gateway-backup.tgz \
+  -C /opt/cliproxy-gateway \
+  config.yaml Caddyfile client.env auth
+```
+
+When rerunning a generator or installer, a new client API key is generated if you do not explicitly pass `--api-key` / `-ApiKey`; existing callers may stop working. To preserve the old key, read it from the existing `client.env` or `config.yaml` and pass it explicitly.
+
+If you only need to upgrade the CLIProxyAPI or Caddy binary, replace the binary first, then restart the corresponding service. Do not commit binaries, auth JSON, logs, or generated deployment files.
+
+## Troubleshooting
+
+| Symptom | Check first |
+|---|---|
+| `curl` cannot reach the domain | DNS, cloud firewall / security group, and whether Caddy owns 80/443 |
+| HTTPS works but API returns 401/403 | The caller is using the API key from `client.env`, and the header is `x-api-key` |
+| API returns 502 / reverse-proxy errors | `cliproxy` is running, and Caddy proxies to `127.0.0.1:8317` |
+| BaoTa / aaPanel returns `416` or a website firewall page | The API site WAF allows `/v1/*`, `/v1/messages?beta=true`, JSON POST bodies, and streaming responses |
+| Logs show no usable auth | The root of `auth/` contains enabled `type=codex` JSON files, and permissions let the service user read them |
+| Upstream requests fail | Server egress, account entitlement, `UpstreamProxyMode`, and `UpstreamProxyUrl` |
+
 ## Auth JSON Sync
 
 The generator scans enabled `type=codex` JSON files under `auth/`:

@@ -260,6 +260,90 @@ sudo systemctl reload caddy
 
 服务正常后，调用方只需要使用 `client.env` 里的公网地址和 API key；见“调用方接入”。
 
+## 安装后使用
+
+安装完成并放好 `auth/*.json` 后，通常只需要做三件事：
+
+1. 重启 CLIProxyAPI，让它重新加载 `auth/*.json` 和 `config.yaml`。
+2. 从 `client.env` 复制 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_AUTH_TOKEN` 到调用方环境。
+3. 调用方始终访问公网 HTTPS 域名，不要访问 `127.0.0.1:8317`。
+
+`client.env` 只是调用方参考，不是服务端运行依赖。CLIProxyAPI 和 Caddy 运行时不读取它。
+
+## 首次验证
+
+先确认公网 HTTPS 入口能连通。即使返回 `404` / `405`，也说明域名、TLS 和反代路径已经到达服务端：
+
+```bash
+curl -i https://api.example.com/v1/messages
+```
+
+再用 `client.env` 里的地址和客户端 API key 发一个最小 Anthropic-compatible `/v1/messages` 请求：
+
+```bash
+source /opt/cliproxy-gateway/client.env
+
+curl "$ANTHROPIC_BASE_URL/v1/messages" \
+  -H "content-type: application/json" \
+  -H "x-api-key: $ANTHROPIC_AUTH_TOKEN" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "gpt-5",
+    "max_tokens": 64,
+    "messages": [
+      {"role": "user", "content": "ping"}
+    ]
+  }'
+```
+
+如果这里返回认证或上游错误，先看 CLIProxyAPI 日志，再检查 `auth/*.json`、客户端 API key 和服务器到 Codex / ChatGPT 上游的网络。
+
+## 日常维护
+
+常用检查命令：
+
+```bash
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+sudo journalctl -u cliproxy -n 100 --no-pager
+```
+
+改动后该重启什么：
+
+| 改动 | 操作 |
+|---|---|
+| `auth/*.json` | `sudo systemctl restart cliproxy` |
+| `config.yaml` | `sudo systemctl restart cliproxy` |
+| `Caddyfile` | `sudo caddy validate --config /etc/caddy/Caddyfile` 后 `sudo systemctl reload caddy` |
+| 调用方环境变量 | 只重启或重开调用方，不需要重启服务端 |
+
+Caddy 自动证书续期只适用于默认 Caddy 路径：域名解析到这台服务器，并且 Caddy 能直接接管公网 80/443。
+
+## 升级与备份
+
+升级前先备份这些文件，尤其是 `auth/` 和 `client.env`：
+
+```bash
+sudo tar -czf /root/cliproxy-gateway-backup.tgz \
+  -C /opt/cliproxy-gateway \
+  config.yaml Caddyfile client.env auth
+```
+
+重新运行生成器或安装脚本时，如果不显式传 `--api-key` / `-ApiKey`，会生成新的客户端 API key，旧调用方可能失效。需要保留旧 key 时，请从现有 `client.env` 或 `config.yaml` 取出后显式传入。
+
+如果只是升级 CLIProxyAPI 或 Caddy 二进制，先替换二进制，再重启对应服务；不要提交二进制、auth JSON、日志或生成后的部署文件。
+
+## 故障排查
+
+| 现象 | 优先检查 |
+|---|---|
+| `curl` 连不上域名 | DNS、云防火墙、安全组、Caddy 是否占用 80/443 |
+| HTTPS 正常但 API 返回 401/403 | 调用方是否使用 `client.env` 中的 API key，header 是否是 `x-api-key` |
+| API 返回 502 / 反代错误 | `cliproxy` 是否运行，Caddyfile 是否反代到 `127.0.0.1:8317` |
+| BaoTa / aaPanel 返回 `416` 或网站防火墙页 | API 站点 WAF 是否放行 `/v1/*`、`/v1/messages?beta=true`、JSON POST 和流式响应 |
+| 日志显示没有可用 auth | `auth/` 根层是否有 enabled `type=codex` JSON，文件权限是否允许服务用户读取 |
+| 上游请求失败 | 服务器出口网络、账号权限、`UpstreamProxyMode` 和 `UpstreamProxyUrl` |
+
 ## Auth JSON 同步
 
 生成器会扫描 `auth/` 目录下 enabled `type=codex` 的 JSON 文件：
