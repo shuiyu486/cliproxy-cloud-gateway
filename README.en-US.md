@@ -190,8 +190,10 @@ The server does not need a graphical browser; prefer CLIProxyAPI device login fr
 
 ```bash
 cd /opt/cliproxy-gateway
-./cli-proxy-api -config ./config.yaml -codex-device-login
+./cli-proxy-api/cli-proxy-api -config ./config.yaml -codex-device-login
 ```
+
+The one-click installer puts the CLIProxyAPI binary at `/opt/cliproxy-gateway/cli-proxy-api/cli-proxy-api` by default. If you installed with a custom `--binary-path`, use your actual path instead.
 
 The command prints a login URL / device code in the terminal. Open it in your local browser and authorize the account; the server-side CLIProxyAPI process keeps waiting for the result and writes the Codex OAuth JSON into the `auth-dir` configured by `config.yaml`:
 
@@ -212,6 +214,41 @@ Notes:
 - The OAuth JSON is usually not bound to local hardware, but it is an account login credential. Do not commit it, paste it into logs, or share it.
 - Do not keep the same OAuth JSON in long-term concurrent use on both your local machine and the server; refresh token rotation can invalidate one side.
 - If a locally generated JSON fails on the server, check the server egress IP, proxy exit, account entitlement, or upstream risk controls first. That is usually not a path problem.
+
+## Start the Gateway After Auth
+
+If you used the Linux one-click cloud installer without `--skip-systemd` / `--skip-caddy-reload`, the installer has already created and started the systemd services. After obtaining or copying auth JSON, restart the CLIProxyAPI service so it reloads `auth/*.json`:
+
+```bash
+sudo systemctl restart cliproxy
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+```
+
+View CLIProxyAPI logs:
+
+```bash
+sudo journalctl -u cliproxy -n 100 --no-pager
+```
+
+If you installed with a custom `--service-name`, replace `cliproxy` with your service name.
+
+If you installed with `--skip-systemd`, you can first run CLIProxyAPI manually for a check:
+
+```bash
+cd /opt/cliproxy-gateway
+./cli-proxy-api/cli-proxy-api -config ./config.yaml
+```
+
+If you installed with `--skip-caddy-reload`, manually install and reload the Caddyfile:
+
+```bash
+sudo cp /opt/cliproxy-gateway/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Once the services are healthy, callers only need the public URL and API key from `client.env`; see "Caller Setup".
 
 ## Auth JSON Sync
 

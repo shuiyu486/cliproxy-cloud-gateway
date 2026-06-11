@@ -190,8 +190,10 @@ Linux 云服务器不需要图形浏览器；推荐在服务器 SSH 里使用 CL
 
 ```bash
 cd /opt/cliproxy-gateway
-./cli-proxy-api -config ./config.yaml -codex-device-login
+./cli-proxy-api/cli-proxy-api -config ./config.yaml -codex-device-login
 ```
+
+一键安装脚本默认会把 CLIProxyAPI 二进制放在 `/opt/cliproxy-gateway/cli-proxy-api/cli-proxy-api`；如果你安装时用了自定义 `--binary-path`，请改用你的实际路径。
 
 命令会在终端输出登录 URL / 设备码。你可以在自己电脑的浏览器里打开并授权；服务器端 CLIProxyAPI 会继续等待授权结果，并把 Codex OAuth JSON 写入 `config.yaml` 指定的 `auth-dir`：
 
@@ -212,6 +214,41 @@ ssh user@server 'chmod 600 /opt/cliproxy-gateway/auth/*.json'
 - OAuth JSON 通常不是按本机硬件绑定，但它等同账号登录凭据。不要提交 GitHub、不要贴日志、不要发给别人。
 - 不要让本机和云服务器长期并发使用同一份 OAuth JSON，refresh token 轮换可能导致其中一边失效。
 - 如果本机生成的 JSON 在云服务器上失败，优先检查服务器出口 IP、代理出口、账号权限或上游风控；这类失败通常不是文件路径问题。
+
+## 获取 auth 后启动网关
+
+如果你使用的是 Linux 云端一键部署，并且安装时没有加 `--skip-systemd` / `--skip-caddy-reload`，安装脚本已经创建并启动了 systemd 服务。获取或复制 auth JSON 后，重启 CLIProxyAPI 服务让它重新加载 `auth/*.json`：
+
+```bash
+sudo systemctl restart cliproxy
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+```
+
+查看 CLIProxyAPI 日志：
+
+```bash
+sudo journalctl -u cliproxy -n 100 --no-pager
+```
+
+如果安装时通过 `--service-name` 改过服务名，请把上面的 `cliproxy` 换成你的服务名。
+
+如果安装时用了 `--skip-systemd`，可以先手动运行 CLIProxyAPI 做检查：
+
+```bash
+cd /opt/cliproxy-gateway
+./cli-proxy-api/cli-proxy-api -config ./config.yaml
+```
+
+如果安装时用了 `--skip-caddy-reload`，还需要手动安装并重载 Caddyfile：
+
+```bash
+sudo cp /opt/cliproxy-gateway/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+服务正常后，调用方只需要使用 `client.env` 里的公网地址和 API key；见“调用方接入”。
 
 ## Auth JSON 同步
 
