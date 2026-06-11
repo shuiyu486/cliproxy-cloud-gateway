@@ -64,17 +64,6 @@ bash ./scripts/install-cloud-gateway.sh \
   --skip-caddy-reload
 ```
 
-### If BaoTa / aaPanel Apache Already Occupies 80/443
-
-If the server already uses a BaoTa / aaPanel Apache site for ports 80/443, you do not need to let this project's Caddy listener take over the public ports. Instead, create an HTTPS site for the API domain in the panel and set its reverse proxy target to `http://127.0.0.1:8317`.
-
-Notes:
-
-- CLIProxyAPI must still listen only on `127.0.0.1:8317`; do not expose port 8317 publicly.
-- BaoTa / aaPanel Apache is an inbound reverse-proxy layer. It is different from `UpstreamProxyMode`, which only affects outbound `CLIProxyAPI -> upstream` traffic.
-- This domain is an API site. If the panel WAF / website firewall / parameter filtering blocks requests, disable WAF for this API site or at least allowlist `/v1/*`, query-string requests such as `/v1/messages?beta=true`, JSON POST bodies, and streaming responses. Otherwise Claude Code may fail with `416` or an Apache website firewall page.
-- See [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443) for the detailed flow.
-
 ## How It Works
 
 ```text
@@ -119,10 +108,20 @@ flowchart LR
 Key points:
 
 - Callers only use `https://your-domain`; they do not directly reach CLIProxyAPI or upstream.
-- Caddy is the only public entry point and handles HTTPS, certificates, and reverse proxying.
+- Caddy is the default public entry point and handles HTTPS, certificates, and reverse proxying.
+- If BaoTa / aaPanel Apache already occupies 80/443, the panel-managed Apache site can be the inbound reverse proxy; see "Choose the Public Entry" below.
 - CLIProxyAPI stays on the cloud server localhost and binds only to `127.0.0.1:8317`.
 - `config.yaml` and `auth/*.json` feed CLIProxyAPI with routing, keys, defaults, and Codex OAuth credentials.
-- Optional upstream proxy affects only outbound `CLIProxyAPI -> upstream` traffic; it does not affect callers connecting to Caddy.
+- Optional upstream proxy affects only outbound `CLIProxyAPI -> upstream` traffic; it does not affect callers connecting to the public domain.
+
+## Choose the Public Entry
+
+| Scenario | Approach | Notes |
+|---|---|---|
+| New server where this project may own 80/443 | Use the default Caddy path | The installer renders and installs `Caddyfile`; Caddy handles HTTPS and reverse proxying. |
+| Existing BaoTa / aaPanel Apache already owns 80/443 | Configure the panel site to proxy to `http://127.0.0.1:8317` | CLIProxyAPI stays private; do not expose port 8317 publicly. |
+
+BaoTa / aaPanel Apache is an inbound reverse-proxy layer. It is different from `UpstreamProxyMode`, which controls outbound `CLIProxyAPI -> upstream` traffic. This domain is an API site. If the panel WAF / website firewall / parameter filtering blocks requests, disable WAF for this API site or at least allowlist `/v1/*`, `/v1/messages?beta=true`, JSON POST bodies, and streaming responses. Otherwise Claude Code may fail with `416` or an Apache website firewall page. See [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443) for the detailed flow.
 
 ## Features
 

@@ -62,17 +62,6 @@ bash ./scripts/install-cloud-gateway.sh \
   --skip-caddy-reload
 ```
 
-### 已有宝塔 / aaPanel Apache 占用 80/443
-
-如果服务器已经由宝塔 / aaPanel 的 Apache 站点接管 80/443，可以不让本项目的 Caddy 直接占用公网端口，改为在面板里为 API 域名配置 HTTPS 站点，并把反向代理目标设为 `http://127.0.0.1:8317`。
-
-注意：
-
-- CLIProxyAPI 仍然只监听 `127.0.0.1:8317`，不要把 8317 暴露到公网。
-- 宝塔 / aaPanel Apache 是入站反代层，和 `UpstreamProxyMode` 这种 `CLIProxyAPI -> 上游` 出站代理不是一回事。
-- 该域名是 API 站点；如果面板 WAF / 网站防火墙 / 参数过滤会拦截请求，请关闭该 API 站点的 WAF，或至少对白名单放行 `/v1/*`、带查询参数的 `/v1/messages?beta=true`、JSON POST 和流式响应。否则 Claude Code 可能报 `416` 或返回“Apache网站防火墙”。
-- 详细步骤见 [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443)。
-
 ## 项目如何生效
 
 ```text
@@ -117,10 +106,20 @@ flowchart LR
 关键点：
 
 - 调用方只访问 `https://你的域名`，不会直接访问 CLIProxyAPI 或上游。
-- Caddy 是唯一公网入口，负责 HTTPS、证书和反代。
+- Caddy 是默认公网入口，负责 HTTPS、证书和反代。
+- 如果服务器已有宝塔 / aaPanel Apache 占用 80/443，可以让面板 Apache 做入站反代；见下方“公网入口怎么选”。
 - CLIProxyAPI 位于云服务器本机，只绑定 `127.0.0.1:8317`，不直接暴露到公网。
 - `config.yaml` 和 `auth/*.json` 是 CLIProxyAPI 的输入，分别提供路由/key/默认值和 Codex OAuth 凭据。
-- 可选上游代理只影响 `CLIProxyAPI -> 上游` 的出站请求，不影响调用方访问 Caddy。
+- 可选上游代理只影响 `CLIProxyAPI -> 上游` 的出站请求，不影响调用方访问公网域名。
+
+## 公网入口怎么选
+
+| 场景 | 做法 | 说明 |
+|---|---|---|
+| 新服务器，80/443 可由本项目接管 | 使用默认 Caddy 方案 | 安装脚本生成并安装 `Caddyfile`，Caddy 负责 HTTPS 和反代。 |
+| 已有宝塔 / aaPanel Apache 占用 80/443 | 在面板里反代到 `http://127.0.0.1:8317` | CLIProxyAPI 仍只监听本机；不要把 8317 暴露到公网。 |
+
+宝塔 / aaPanel Apache 属于入站反代层，和 `UpstreamProxyMode` 这种 `CLIProxyAPI -> 上游` 出站代理不是一回事。该域名是 API 站点，如果面板 WAF / 网站防火墙 / 参数过滤拦截请求，请关闭该 API 站点的 WAF，或至少对白名单放行 `/v1/*`、`/v1/messages?beta=true`、JSON POST 和流式响应；否则 Claude Code 可能报 `416` 或返回“Apache网站防火墙”。详细步骤见 [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443)。
 
 ## 功能特性
 

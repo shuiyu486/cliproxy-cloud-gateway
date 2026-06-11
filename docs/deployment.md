@@ -2,27 +2,37 @@
 
 ## Design
 
-This project implements Solution B:
+The gateway has one fixed private service and one selectable public entry:
 
 ```text
-client -> https://api.example.com -> Caddy -> http://127.0.0.1:8317 -> CLIProxyAPI
+client -> public HTTPS entry -> http://127.0.0.1:8317 -> CLIProxyAPI -> Codex / ChatGPT upstream
 ```
 
-CLIProxyAPI stays private. Caddy handles the public HTTPS listener, certificate
-automation, and reverse proxying. CLIProxyAPI API keys still protect the API
-surface.
+Rules that do not change:
 
-## Prerequisites
+- CLIProxyAPI stays private and binds to `127.0.0.1`.
+- port `8317` must not be exposed publicly.
+- The public HTTPS entry handles certificates and reverse proxying.
+- `UpstreamProxyMode` controls only outbound `CLIProxyAPI -> Codex / ChatGPT upstream` traffic.
+
+## Public Entry Options
+
+| Scenario | Public entry | Private target |
+|---|---|---|
+| New cloud server where this project may own 80/443 | Caddy | `http://127.0.0.1:8317` |
+| Existing BaoTa / aaPanel Apache already owns 80/443 | Panel-managed Apache | `http://127.0.0.1:8317` |
+
+The default deployment path is Caddy. Use the BaoTa / aaPanel path only when an
+existing panel-managed site already owns ports 80/443.
+
+## Common Prerequisites
 
 - A domain with DNS pointing to the server.
-- Open inbound TCP 80 and 443 for Caddy.
 - CLIProxyAPI installed on the server, or downloaded by the Linux cloud installer / LAN one-click test script.
-- Caddy installed on the server, or downloaded by the Linux cloud installer / LAN one-click test script.
 - Existing CLIProxyAPI OAuth auth JSON files copied into the generated `auth`
   directory.
-
-Do not expose the generated CLIProxyAPI port to the internet. Keep it bound to
-`127.0.0.1`.
+- For the default Caddy path, inbound TCP 80 and 443 must be available to Caddy.
+- For the BaoTa / aaPanel path, the panel site must provide HTTPS and reverse proxying.
 
 The generator synchronizes enabled `type=codex` auth JSON files in the auth
 directory:
@@ -34,18 +44,12 @@ directory:
 
 ## Existing BaoTa / aaPanel Apache on 80/443
 
-The default deployment path uses Caddy as the public HTTPS entry point. If an
-existing BaoTa / aaPanel Apache site already owns ports 80/443, keep that panel
-site as the public entry and reverse proxy the API domain to the private
-CLIProxyAPI listener instead:
+Use this flow when a BaoTa / aaPanel Apache site already handles the public 80/443
+ports:
 
 ```text
 client -> Apache HTTPS (BaoTa / aaPanel) -> http://127.0.0.1:8317 -> CLIProxyAPI -> Codex / ChatGPT upstream
 ```
-
-Use this only as a panel coexistence setup. The security boundary stays the
-same: CLIProxyAPI must remain bound to `127.0.0.1`, and port `8317` must not be
-exposed publicly.
 
 Minimal panel-side flow:
 
