@@ -215,6 +215,136 @@ does not print API keys to stdout.
 For OpenAI-compatible clients, use the same base URL and put the API key in the
 client's bearer token setting.
 
+`client.env` is not a runtime dependency for CLIProxyAPI or Caddy. It is only a
+caller-side reference file. If you regenerate deployment files, preserve the old
+API key by passing `--api-key` / `-ApiKey`; otherwise the generator creates a new
+key and existing callers may stop working.
+
+## After Installation
+
+After the Linux installer or manual setup finishes, the normal post-install flow
+is:
+
+1. Put enabled `type=codex` OAuth JSON files under the generated `auth/`
+   directory, or run CLIProxyAPI device login on the server.
+2. Restart CLIProxyAPI so it reloads `auth/*.json` and `config.yaml`.
+3. Configure callers with only the public base URL and client API key from
+   `client.env`.
+4. Keep callers pointed at the public HTTPS entry. Do not point them at
+   `127.0.0.1:8317` unless the caller runs on the same host for a local-only
+   diagnostic.
+
+For the default Linux service name:
+
+```bash
+sudo systemctl restart cliproxy
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+```
+
+If you changed `--service-name`, replace `cliproxy` with the actual service
+name.
+
+## First Verification
+
+Check the public HTTPS entry first:
+
+```bash
+curl -i https://api.example.com/v1/messages
+```
+
+A `404` or `405` response can still be useful at this stage because it proves the
+request reached the public entry and was reverse-proxied to the server-side API
+path. Connection, DNS, or TLS failures should be fixed before debugging
+CLIProxyAPI auth.
+
+Then send a minimal Anthropic-compatible `/v1/messages` request using the values
+from `client.env`:
+
+```bash
+source /opt/cliproxy-gateway/client.env
+
+curl "$ANTHROPIC_BASE_URL/v1/messages" \
+  -H "content-type: application/json" \
+  -H "x-api-key: $ANTHROPIC_AUTH_TOKEN" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "gpt-5",
+    "max_tokens": 64,
+    "messages": [
+      {"role": "user", "content": "ping"}
+    ]
+  }'
+```
+
+The important wire shape is:
+
+- endpoint: `POST <ANTHROPIC_BASE_URL>/v1/messages`;
+- auth header: `x-api-key: <client API key from client.env>`;
+- version header: `anthropic-version: 2023-06-01`;
+- JSON body with `model`, `max_tokens`, and `messages`.
+
+If this request reaches CLIProxyAPI but fails upstream, check CLIProxyAPI logs,
+`auth/*.json`, account entitlement, server egress, and `UpstreamProxyMode`.
+
+## Routine Maintenance
+
+Common Linux checks:
+
+```bash
+sudo systemctl status cliproxy --no-pager
+sudo systemctl status caddy --no-pager
+sudo journalctl -u cliproxy -n 100 --no-pager
+```
+
+Change handling:
+
+| Change | Required action |
+|---|---|
+| Add, remove, or edit `auth/*.json` | Restart CLIProxyAPI. |
+| Edit `config.yaml` | Restart CLIProxyAPI. |
+| Edit `Caddyfile` | Run `caddy validate`, then reload Caddy. |
+| Edit caller environment variables | Restart or reopen the caller only. |
+| Change `UpstreamProxyMode` / `UpstreamProxyUrl` | Regenerate or edit config, synchronize auth metadata, then restart CLIProxyAPI. |
+
+Caddy automatic certificate renewal only applies when Caddy directly owns the
+public 80/443 entry and the domain resolves to this server. When BaoTa / aaPanel
+Apache owns 80/443, certificate lifecycle is managed by the panel site instead.
+
+## Upgrade and Backup
+
+Before replacing binaries or regenerating files, back up the deployment state:
+
+```bash
+sudo tar -czf /root/cliproxy-gateway-backup.tgz \
+  -C /opt/cliproxy-gateway \
+  config.yaml Caddyfile client.env auth
+```
+
+Keep these rules in mind:
+
+- `auth/` and `client.env` are sensitive. Do not commit or paste them into issue
+  reports.
+- Re-running a generator without `--api-key` / `-ApiKey` creates a new client API
+  key. Pass the existing key explicitly if callers must keep working.
+- If you only replace the CLIProxyAPI binary, restart CLIProxyAPI.
+- If you only replace the Caddy binary or Caddyfile, validate and reload Caddy.
+- Do not commit generated `config.yaml`, `Caddyfile`, `client.env`, auth JSON,
+  logs, or downloaded binaries.
+
+## Troubleshooting
+
+| Symptom | Check first |
+|---|---|
+| Domain cannot be reached | DNS, cloud firewall / security group, inbound 80/443, and whether the selected public entry is running. |
+| TLS or certificate failure | Caddy ownership of 80/443 in the default path, or panel HTTPS settings in the BaoTa / aaPanel path. |
+| API returns 401 / 403 | Caller uses the client API key from `client.env`, and the request sends it as `x-api-key`. |
+| API returns 502 / bad gateway | CLIProxyAPI service status and whether the public entry proxies to `127.0.0.1:8317`. |
+| BaoTa / aaPanel returns `416` or a firewall page | Disable WAF for the API site or allowlist `/v1/*`, `/v1/messages?beta=true`, JSON POST bodies, headers, and streaming responses. |
+| CLIProxyAPI has no usable clients | Enabled `type=codex` JSON exists directly under `auth/`, is readable by the service user, and is not a settings/test/temp file. |
+| Upstream requests fail | Server egress IP, proxy exit, account entitlement, `UpstreamProxyMode`, and normalized `proxy_url` in enabled auth JSON. |
+| Thinking or reasoning fields behave unexpectedly | Confirm no manual `payload.filter` is configured unless you intentionally disabled those fields. |
+
 ## Security Defaults
 
 The generated `config.yaml` keeps these defaults:
