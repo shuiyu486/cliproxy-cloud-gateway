@@ -78,6 +78,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $ReadmePath = Join-Path $Root "README.md"
 $EnglishReadmePath = Join-Path $Root "README.en-US.md"
+$DeploymentPath = Join-Path $Root "docs/deployment.md"
 $MemoryPath = Join-Path $Root "CLAUDE.md"
 
 $Readme = Read-TextIfPresent $ReadmePath
@@ -110,6 +111,10 @@ if ($null -ne $Readme) {
     Assert-Contains $Readme 'Linux 云服务器不需要图形浏览器' "default README explains headless Linux login"
     Assert-Contains $Readme '不要直接把 `~/.codex/auth.json` 当作这里的 OAuth 文件' "default README warns against copying Codex CLI auth"
     Assert-Contains $Readme '不要让本机和云服务器长期并发使用同一份 OAuth JSON' "default README warns against concurrent auth reuse"
+    Assert-Contains $Readme '宝塔 / aaPanel Apache' "default README documents panel Apache coexistence"
+    Assert-Contains $Readme '不要把 8317 暴露到公网' "default README keeps panel setup private"
+    Assert-Contains $Readme '/v1/messages?beta=true' "default README documents panel WAF query-string issue"
+    Assert-Contains $Readme 'UpstreamProxyMode' "default README distinguishes inbound panel proxy from upstream proxy"
     Assert-Contains $Readme '## Doctor 检查' "default README documents doctor checks"
     Assert-Contains $Readme 'https://github.com/shuiyu486/cliproxy-cloud-gateway' "default README references GitHub repository"
 }
@@ -143,6 +148,20 @@ if ($null -ne $EnglishReadme) {
     Assert-Contains $EnglishReadme 'The server does not need a graphical browser' "English README explains headless Linux login"
     Assert-Contains $EnglishReadme 'Do not use `~/.codex/auth.json` directly as this OAuth file' "English README warns against copying Codex CLI auth"
     Assert-Contains $EnglishReadme 'Do not keep the same OAuth JSON in long-term concurrent use on both your local machine and the server' "English README warns against concurrent auth reuse"
+    Assert-Contains $EnglishReadme 'BaoTa / aaPanel Apache' "English README documents panel Apache coexistence"
+    Assert-Contains $EnglishReadme 'do not expose port 8317 publicly' "English README keeps panel setup private"
+    Assert-Contains $EnglishReadme '/v1/messages?beta=true' "English README documents panel WAF query-string issue"
+    Assert-Contains $EnglishReadme 'UpstreamProxyMode' "English README distinguishes inbound panel proxy from upstream proxy"
+}
+
+$Deployment = Read-TextIfPresent $DeploymentPath
+if ($null -ne $Deployment) {
+    Assert-Contains $Deployment 'Existing BaoTa / aaPanel Apache on 80/443' "deployment guide documents panel Apache coexistence"
+    Assert-Contains $Deployment 'http://127.0.0.1:8317' "deployment guide points panel proxy at private CLIProxyAPI"
+    Assert-Contains $Deployment 'port `8317` must not be' "deployment guide forbids public private-port exposure"
+    Assert-Contains $Deployment '/v1/messages?beta=true' "deployment guide documents panel WAF query-string issue"
+    Assert-Contains $Deployment 'client -> gateway' "deployment guide distinguishes inbound panel proxy"
+    Assert-Contains $Deployment 'CLIProxyAPI -> Codex / ChatGPT upstream' "deployment guide distinguishes outbound upstream proxy"
 }
 
 $Memory = Read-TextIfPresent $MemoryPath

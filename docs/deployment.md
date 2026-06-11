@@ -32,6 +32,48 @@ directory:
 - Direct mode removes stale `proxy_url`;
 - Http/Socks5 mode writes a normalized `proxy_url`.
 
+## Existing BaoTa / aaPanel Apache on 80/443
+
+The default deployment path uses Caddy as the public HTTPS entry point. If an
+existing BaoTa / aaPanel Apache site already owns ports 80/443, keep that panel
+site as the public entry and reverse proxy the API domain to the private
+CLIProxyAPI listener instead:
+
+```text
+client -> Apache HTTPS (BaoTa / aaPanel) -> http://127.0.0.1:8317 -> CLIProxyAPI -> Codex / ChatGPT upstream
+```
+
+Use this only as a panel coexistence setup. The security boundary stays the
+same: CLIProxyAPI must remain bound to `127.0.0.1`, and port `8317` must not be
+exposed publicly.
+
+Minimal panel-side flow:
+
+1. Generate and start the gateway normally so CLIProxyAPI listens on
+   `127.0.0.1:8317`.
+2. In BaoTa / aaPanel, create or select the API domain site, for example
+   `api.example.com`.
+3. Enable HTTPS for that site in the panel.
+4. Add a reverse proxy from the API domain to `http://127.0.0.1:8317`.
+5. Keep caller configuration pointed at the public HTTPS domain from
+   `client.env`, not at `127.0.0.1`.
+
+### WAF notes
+
+This API domain carries JSON POST requests, authorization headers, query-string
+requests such as `/v1/messages?beta=true`, and streaming responses. Generic
+website WAF / request filtering rules can mistake these API requests for invalid
+web traffic and return `416` or an Apache website firewall page.
+
+For the API site, disable the panel WAF or at least allowlist `/v1/*`, including
+query-string requests and streaming responses. Prefer a path-scoped exception
+for `/v1/*` instead of changing protection for unrelated websites on the same
+server.
+
+Do not confuse this with `UpstreamProxyMode`: BaoTa / aaPanel Apache is inbound
+`client -> gateway` traffic, while `UpstreamProxyMode` controls outbound
+`CLIProxyAPI -> Codex / ChatGPT upstream` traffic.
+
 ## Windows
 
 Generate files:

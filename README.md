@@ -62,6 +62,17 @@ bash ./scripts/install-cloud-gateway.sh \
   --skip-caddy-reload
 ```
 
+### 已有宝塔 / aaPanel Apache 占用 80/443
+
+如果服务器已经由宝塔 / aaPanel 的 Apache 站点接管 80/443，可以不让本项目的 Caddy 直接占用公网端口，改为在面板里为 API 域名配置 HTTPS 站点，并把反向代理目标设为 `http://127.0.0.1:8317`。
+
+注意：
+
+- CLIProxyAPI 仍然只监听 `127.0.0.1:8317`，不要把 8317 暴露到公网。
+- 宝塔 / aaPanel Apache 是入站反代层，和 `UpstreamProxyMode` 这种 `CLIProxyAPI -> 上游` 出站代理不是一回事。
+- 该域名是 API 站点；如果面板 WAF / 网站防火墙 / 参数过滤会拦截请求，请关闭该 API 站点的 WAF，或至少对白名单放行 `/v1/*`、带查询参数的 `/v1/messages?beta=true`、JSON POST 和流式响应。否则 Claude Code 可能报 `416` 或返回“Apache网站防火墙”。
+- 详细步骤见 [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443)。
+
 ## 项目如何生效
 
 ```text

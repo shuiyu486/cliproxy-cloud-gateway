@@ -64,6 +64,17 @@ bash ./scripts/install-cloud-gateway.sh \
   --skip-caddy-reload
 ```
 
+### If BaoTa / aaPanel Apache Already Occupies 80/443
+
+If the server already uses a BaoTa / aaPanel Apache site for ports 80/443, you do not need to let this project's Caddy listener take over the public ports. Instead, create an HTTPS site for the API domain in the panel and set its reverse proxy target to `http://127.0.0.1:8317`.
+
+Notes:
+
+- CLIProxyAPI must still listen only on `127.0.0.1:8317`; do not expose port 8317 publicly.
+- BaoTa / aaPanel Apache is an inbound reverse-proxy layer. It is different from `UpstreamProxyMode`, which only affects outbound `CLIProxyAPI -> upstream` traffic.
+- This domain is an API site. If the panel WAF / website firewall / parameter filtering blocks requests, disable WAF for this API site or at least allowlist `/v1/*`, query-string requests such as `/v1/messages?beta=true`, JSON POST bodies, and streaming responses. Otherwise Claude Code may fail with `416` or an Apache website firewall page.
+- See [`docs/deployment.md`](docs/deployment.md#existing-baota--aapanel-apache-on-80443) for the detailed flow.
+
 ## How It Works
 
 ```text
